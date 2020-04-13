@@ -6,8 +6,8 @@ Algunos de los paquetes que vamos a estudiar por semana están definidos en el s
 
 | Fecha presentación | Paquete o tema | Persona asignada |
 |:------------------:|:--------------:|:----------------:|
-| 19/4/2020          |                | Allan            |
-| 19/4/2020          |                | Patrick          |
+| 19/4/2020          |   paquete1             | Allan            |
+| 19/4/2020          |    paquete 2            | Patrick          |
 | 26/4/2020          |                | Allan            |
 | 26/4/2020          |                | Patrick          |
 | 3/5/2020           |                | Allan            |
