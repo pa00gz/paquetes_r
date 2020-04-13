@@ -6,16 +6,16 @@ Algunos de los paquetes que vamos a estudiar por semana están definidos en el s
 
 | Fecha presentación | Paquete o tema | Persona asignada |
 |:------------------:|:--------------:|:----------------:|
-| 19/4/2020          |   paquete1             | Allan            |
-| 19/4/2020          |    paquete 2            | Patrick          |
-| 26/4/2020          |   pateque 4             | Allan            |
-| 26/4/2020          |    pakete 3            | Patrick          |
-| 3/5/2020           |                | Allan            |
-| 3/5/2020           |                | Patrick          |
-| 10/5/2020          |                | Allan            |
-| 10/5/2020          |                | Patrick          |
-| 17/5/2020          |                | Allan            |
-| 17/5/2020          |                | Patrick          |
+| 19/4/2020          |   forcats      | Allan            |
+| 19/4/2020          |   purrr        | Patrick          |
+| 26/4/2020          |   tidyr        | Allan            |
+| 26/4/2020          |   stringr      | Patrick          |
+| 3/5/2020           |   xaringan     | Allan            |
+| 3/5/2020           |   tidymodel    | Patrick          |
+| 10/5/2020          |   officer      | Allan            |
+| 10/5/2020          |   janitor      | Patrick          |
+| 17/5/2020          |   fable        | Allan            |
+| 17/5/2020          |   gt           | Patrick          |
 
 Las manera en que se va a llevar a cabo la dinámica es la siguiente:
 
