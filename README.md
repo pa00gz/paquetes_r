@@ -8,8 +8,8 @@ Algunos de los paquetes que vamos a estudiar por semana están definidos en el s
 |:------------------:|:--------------:|:----------------:|
 | 19/4/2020          |   paquete1             | Allan            |
 | 19/4/2020          |    paquete 2            | Patrick          |
-| 26/4/2020          |                | Allan            |
-| 26/4/2020          |                | Patrick          |
+| 26/4/2020          |   pateque 4             | Allan            |
+| 26/4/2020          |    pakete 3            | Patrick          |
 | 3/5/2020           |                | Allan            |
 | 3/5/2020           |                | Patrick          |
 | 10/5/2020          |                | Allan            |
