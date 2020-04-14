@@ -1,0 +1,166 @@
+---
+title: "Introducción a purrr"
+author: "Patrick Santamaría"
+date: "13/4/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Una de las ventajas de purrr es que se encuentra en tidyverse, entonces con solo cargar `tidyverse` ya lo tenemos cargado, y esto además nos permite trabajar con tidy data de manera más amigable.
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+`purrr` se caracteriza por ser un paquete de programación funcional, lo cuál quiere decir que es una programación enfocada en simplificar al máximo un programa y delegar los flujos de trabajo y condiciones a funciones. 
+
+La función más popular de este paquete es `map`, y existen algunas variaciones según sea el output que queremos recibir al ejecutar dicha función.
+
+- `map()` devuelve una lista.
+- `map_lgl()` devuelve un vector lógico.
+- `map_int()` devuelve un vector  de números enteros.
+- `map_dbl()` devuelve un vector `double`.
+- `map_chr()` devuelve un vector de caracteres.
+
+Lo importante es que todas tienen algo en común y es que utilizan los mismos parámetros en su definición, lo que cambia es el tipo de salida que da la función. Estos parámetros son:
+
+- `.x` corresponde a una lista o vector.
+
+- `.f` es la función que se le aplicada a cada una de las entradas de la lista o vector indicado.
+
+`purrr` por excelencia es un paquete que trabaja con listas (`list`), es por eso que su función más general devuelve una lista, y en algunos casos lo ideal es trabajar con listas en los inputs que definimos. 
+
+Empecemos por ver el uso básico:
+
+```{r}
+valores <- c(5, 4, 7, 34, 2)
+
+map(.x = valores, .f = ~ exp(.x))
+```
+
+Como vemos le aplica la función exponencial a cada entrada del vector `valores`, pero nos devuelve una lista y eso no es lo que posiblemente deseamos. Si quisieramos un vector numérico con decimales, basta usar `map_dbl` para que nos de un vector tipo `double` como salida
+
+```{r}
+map_dbl(.x = valores, .f = ~ exp(.x))
+```
+
+Ahora si en vez de un vector utilizamos un `data.frame` la función se aplicará a cada una de esas columnas. Veamos un ejemplo con el set de datos `iris`:
+
+```{r}
+df <- iris[, 1:4]
+
+df %>% 
+  head(10)
+
+map(.x = df, .f = ~ exp(.x))
+```
+
+Como vemos aplica la función a cada una de las columnas en cada iteración, sin embargo, nuevamente nos devuelve una lista por defecto, pero basta con usar `map_dfr` para que nos devuelva un `tibble`:
+
+```{r}
+map_dfr(.x = df, .f = ~ exp(.x))
+```
+
+Como ultimo ejemplo supongamos que queremos ver el tipo de cada variable de ese mismo data frame, pero queremos un vector de caracteres de salida
+
+```{r}
+map_chr(.x = df, .f = ~ typeof(.x))
+```
+
+
+En general: 
+![](img/purrr1.png)
+
+Como vemos estas funciones de `map` en general hacen referencia a procesos *iterativos*, es decir, podemos sustituir un `for loop` por una función `map`, sin embargo esto no siempre es así y quizás en ocasiones lo ideal es utilizar un `for loop`. Veamos un ejemplo de como `map` puede sustituir a un `for`
+
+Imaginemos por un momento que queremos aplicarle exponencial a cada una de las columnas numéricas de `iris`, con un `for` lo hariamos de esta manera :
+
+```{r}
+df <- iris
+
+df %>% 
+  head(5)
+  
+  for(i in 1:ncol(df)) {
+    if(is.numeric(df[, i])){
+      df[, i] <- exp(df[, i])
+    } else {
+      df[, i] <- df[, i]
+    }
+  }
+
+df
+```
+
+Con `purrr` lo podemos replicar es esta manera:
+
+```{r}
+map_dfr(.x = df, .f = ~ if (is.numeric(.x)) {
+  exp(.x)
+  } else {
+    .x
+    }
+)
+```
+
+O bien espeficando la función (si hacemos estos no es necesario poner `.x`):
+
+```{r}
+map_dfr(.x = df, .f = function(x) {
+  if (is.numeric(x)) {
+  exp(x)
+  } else {
+    x
+    }
+})
+```
+
+Pero recordemos que `purrr` pertenece a la familia tidyverse, por lo que es amigable con los `%>%`, y podemos hacer aún más claro el código anterior de la siguiente manera:
+
+```{r}
+df %>% 
+  map_dfr(~ if (is.numeric(.x)) {
+  exp(.x)
+  } else {
+    .x
+    })
+```
+
+Incluso despues de ello podemos seguir aplicando diversas funciones de `tidyverse`:
+
+```{r}
+df %>% 
+  map_dfr(~ if (is.numeric(.x)) {
+  exp(.x)
+  } else {
+    .x
+    }) %>% 
+  rename(Especies = Species) %>% 
+  select(Especies)
+```
+
+A su vez `purrr` tiene otras variaciones, por ejemplo aplicar una función pero no basada en un argumento sino en dos.
+
+- `map2()` devuelve una lista.
+- `map2_lgl()` devuelve un vector lógico.
+- `map2_int()` devuelve un vector  de números enteros.
+- `map2_dbl()` devuelve un vector `double`.
+- `map2_chr()` devuelve un vector de caracteres.
+
+Sus argumentos ahora son:
+
+- `.x` corresponde a una lista o vector.
+
+- `.y` corresponde a una lista o vector.
+
+- `.f` es la función que se le aplicada a cada una de las entradas de la lista o vector indicado.
+
+Es importante resaltar que `.x` y `.y` deben tener la misma dimensión. Pues ahora se sigue la siguiente idea:
+
+![](img/purrr2.png)
+
+La función se aplica a las primeras entradas de `.x` y `.y`, posteriormente a las segundas y así sucesivamente, por esto deben tener la misma dimensión.
+
+
