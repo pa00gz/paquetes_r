@@ -1,7 +1,7 @@
 ---
 title: "Introducción a purrr"
 author: "Patrick Santamaría"
-date: "13/4/2020"
+date: "18/4/2020"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -15,6 +15,8 @@ library(tidyverse)
 ```
 
 `purrr` se caracteriza por ser un paquete de programación funcional, lo cuál quiere decir que es una programación enfocada en simplificar al máximo un programa y delegar los flujos de trabajo y condiciones a funciones. 
+
+# Familia map
 
 La función más popular de este paquete es `map`, y existen algunas variaciones según sea el output que queremos recibir al ejecutar dicha función.
 
@@ -78,7 +80,8 @@ Como vemos estas funciones de `map` en general hacen referencia a procesos *iter
 Imaginemos por un momento que queremos aplicarle exponencial a cada una de las columnas numéricas de `iris`, con un `for` lo hariamos de esta manera :
 
 ```{r}
-df <- iris
+df <- iris %>% 
+  slice(1:70)
 
 df %>% 
   head(5)
@@ -137,8 +140,7 @@ df %>%
   } else {
     .x
     }) %>% 
-  rename(Especies = Species) %>% 
-  select(Especies)
+  rename(Especies = Species)
 ```
 
 A su vez `purrr` tiene otras variaciones, por ejemplo aplicar una función pero no basada en un argumento sino en dos.
@@ -155,12 +157,251 @@ Sus argumentos ahora son:
 
 - `.y` corresponde a una lista o vector.
 
-- `.f` es la función que se le aplicada a cada una de las entradas de la lista o vector indicado.
+- `.f` es la función que se le aplicada a cada una de las entradas de las listas o vectores indicados.
 
 Es importante resaltar que `.x` y `.y` deben tener la misma dimensión. Pues ahora se sigue la siguiente idea:
 
 ![](img/purrr2.png)
 
-La función se aplica a las primeras entradas de `.x` y `.y`, posteriormente a las segundas y así sucesivamente, por esto deben tener la misma dimensión.
+La función se aplica a las primeras entradas de `.x` y `.y`, posteriormente a las segundas y así sucesivamente, por esto deben tener la misma dimensión. Por ejemplo:
+
+```{r}
+map2(.x = df$Sepal.Length, .y = df$Sepal.Width, .f = ~ paste("Length:", .x, "Width:", .y))
+
+#para devolver como un vector y no como lista
+map2_chr(.x = df$Sepal.Length, .y = df$Sepal.Width, .f = ~ paste("Length:", .x, "Width:", .y))
+```
+
+Lo bueno es que no tenemos que preocuparnos por la cantidad de variables o objetos que queremos ir iterando, pues `purrr` tiene una función de la familia `map` que nos permite generalizar estas dos funciones anteriores a el número `p` de variables que deseemos. Las funciones son las mismas:
+
+- `pmap()` devuelve una lista.
+- `pmap_lgl()` devuelve un vector lógico.
+- `pmap_int()` devuelve un vector  de números enteros.
+- `pmap_dbl()` devuelve un vector `double`.
+- `pmap_chr()` devuelve un vector de caracteres.
+
+Sus argumentos ahora son:
+
+- `.l` corresponde a una lista de variables o objetos sobre los cuales vamos a ir iterando (deben tener la misma dimension)
+
+- `.f` es la función que se le aplicada a cada una de las entradas de las listas o vectores indicados.
+
+En estas se aplica el siguiente principio:
+
+![](img/purrr3.png)
 
 
+Un ejemplo puede ser el siguiente:
+
+```{r}
+pmap(.l = list(x = df$Sepal.Length,
+               y = df$Sepal.Width,
+               z = df$Petal.Length),
+     .f = function(x,y,z) {
+       paste("Sepal (Length - Width):", x - y, "Petal Length:", z)
+       })
+
+#para devolver como un vector y no como lista
+pmap_chr(.l = list(x = df$Sepal.Length,
+               y = df$Sepal.Width,
+               z = df$Petal.Length),
+     .f = function(x,y,z) {
+       paste("Sepal (Length - Width):", x - y, "Petal Length:", z)
+       })
+```
+
+Otra función interesante es `modify` que es una variacion de `map` pero que devuelve nuestro output en el mismo formato del imput, se usa mucho como alternativa de `mutate` (función del paquete dplyr). Veamos un ejemplo de cambiar todas las variables numericas a caracter.
+
+```{r}
+df %>% 
+  modify_if(is.numeric, as.character)
+```
+
+O este para solo convertir ciertas variables en caracter:
+
+```{r}
+df %>% 
+  modify_at(c("Sepal.Length", "Sepal.Width"), as.character)
+```
+
+
+# Otras funciones
+
+Hay algunas funciones logicas como `has_element` para ver si en un vector o lista se encuentra un determinado valor, un ejemplo con un vector es:
+
+```{r}
+  has_element(df$Species, "setosa")
+```
+
+
+Otras nos sirven para desmenuzar una lista como por ejemplo, si tenemos esta lista y queremos que cada uno de los cuatro valores se un valor en la lista lo podemos hacer con `flatten`
+
+```{r}
+x <- rerun(2, sample(4))
+
+x
+
+flatten(x)
+```
+
+Si queremos esto de vuelta como un vector podemos usar `flaten_int`, pero tambien lo podemos devolver como un vector de caracteres con `flatten_chr`, y funciona muy similar a la familia `map`
+
+```{r}
+flatten_int(x)
+flatten_chr(x)
+```
+
+Tambien está la función `accumulate` que valga la redundancia nos sirven para acumular en base a una función, veamos con una suma acumulada o un paste de valores:
+
+```{r}
+rep(2, 5) %>% 
+  accumulate(sum)
+
+rep(2, 5) %>% 
+  accumulate(paste)
+
+rep(2, 5) %>% 
+  accumulate(paste, sep = ".")
+```
+
+Queremos un variable de suma acumulada de otra? Podemos hacerlo facilmente usando `dplyr`:
+
+```{r}
+df %>% 
+  mutate(Sepal.Length_acum = accumulate(Sepal.Length, sum))
+```
+
+Otra de las funciones interesantes, y dado que no tenemos tiempo para ver todas las funciones del paquete, es `reduce`, que básicamente nos permite reudcir elementos de un vector a un solo valor, haciendo una suma de todos por ejemplo, veamos algunas aplicaciones:
+
+```{r}
+# suma de todos los elementos del vector
+rep(2, 5) %>%
+  reduce(`+`)
+
+# multiplicatoria de todos los elementos del vector
+rep(2, 5) %>%
+  reduce(`*`)
+
+# paste de todos los elementos separados por coma
+rep(2, 5) %>%
+  reduce(paste, sep = ", ")
+
+#con la lista que creamos anteriormente lo que hace es juntarlos en pares
+x %>% 
+  reduce(paste)
+
+# esto los suma en pares
+x %>% 
+  reduce(`+`)
+# esto los suma todos
+x %>% 
+  reduce(sum)
+```
+
+# Aplicacion interesante para estadistico
+
+Una aplicacion interesante de `purrr` es que es muy amigable cuando tenemos variables anidadas en un data frame, dado que no tenemos un ejemplo, anidemos `df` basandonos en la variable `Species`:
+
+```{r}
+df_anidada <- df %>% 
+  group_nest(Species)
+
+df_anidada
+```
+
+Lo que hicimos con esto fue anidar en una columna todas las demas variables que pertenecen a alguna especie, con la familia de funciones `map` podemos generar una regresión dentro de cada especie:
+
+```{r}
+df_regresion <- df_anidada %>% 
+  mutate(regresion = map(data, ~ lm(.x$Sepal.Length ~ .x$Sepal.Width + .x$Petal.Width)))
+
+df_regresion
+```
+
+Ahora tenemos una regresion guardada en otra columna para cada especie. Si queremos hacer un anova de cada una basta con hacer:
+
+```{r}
+df_regresion %>% 
+  mutate(anova = map(regresion, anova)) %>% 
+  pull(anova)
+```
+
+# Valor agregado de purrr
+
+Una de las maravillas que yo he encontrado en `purrr` es que podemos paralelizar los procesos para hacerlos más eficientes a través del paquete `furrr`, y es paralelizar todo lo que hemos hecho anteriormente es tan facil y sencillo como:
+
+1. Cargar el paquete `furrr`.
+
+```{r}
+library(furrr)
+```
+
+2. Definir un plan multisession. Se debe instalar el paquete `future` en caso de no tenerlo instalado.
+
+```{r}
+plan("future::multisession")
+```
+
+3. Agregar el prefijo `future_` a la funcion de purrr que queremos paralelizar.
+
+Sin embargo, paralelizar un proceso, por la experiencia que yo tengo no siempre es buena opción.
+
+Recordemos que paralelizar un proceso es enviar nuestra carga de trabajo a distintos `workers` o `cores` para hacerlo de forma simultanea y poder ejecutar un proceso de forma más eficiente, utilizando toda (o cierta parte) la capacidad computacional que tenemos disponible.
+
+Dicho esto, cuando un proceso se realiza de forma inmediata usando solo un `core` (la manera como ejecutamos todo habitualmente) estamos frente a un proceso que quizás no es necesario paralelizar, porque tardariamos más enviando esta carga de trabajo a los distintos `cores` que ejecutandolo en uno solo. Un ejemplo claro de esto lo vemos probando todo el proceso para ver el anova que hicimos anteriormente. Utilizaremos el paquete `tictoc` para medir el tiempo en segundos que dura cada proceso: 
+
+```{r}
+library(tictoc)
+
+# utilizando purrr sin paralelizar
+tic()
+reg_purrr <-df %>% 
+  group_nest(Species) %>% 
+  mutate(regresion = map(data, ~ lm(.x$Sepal.Length ~ .x$Sepal.Width + .x$Petal.Width)))%>% 
+  mutate(anova = map(regresion, anova)) %>% 
+  pull(anova)
+toc()
+
+# utilizando furrr paralelizando, solo cambiamos los map por future_map
+tic()
+reg_furrr <- df %>% 
+  group_nest(Species) %>% 
+  mutate(regresion = future_map(data, ~ lm(.x$Sepal.Length ~ .x$Sepal.Width + .x$Petal.Width)))%>% 
+  mutate(anova = future_map(regresion, anova)) %>% 
+  pull(anova)
+toc()
+```
+
+Y el ejemplo es claro, este es un proceso que se ejecuta tan rapidamente que es más rápido no paralelizar que intentar paralelizarlo. La solución es no complicarnos nunca paralelizando? No! Cuando tenemos grandes cargas de trabajo, paralelizar nos proporciona una mejora evidente en cuanto a duración.
+
+Vamos a ver un ejemplo con un proceso que requiere un poco más de trabajo para un solo `core`
+
+```{r}
+muestra <- rnorm(50000)
+
+tic()
+proceso_purrr <- map_dbl(.x = muestra, ~ .x + reduce(.x, `+`))
+toc()
+
+tic()
+proceso_furrr <- future_map_dbl(.x = muestra, ~ .x + reduce(.x, `+`))
+toc()
+```
+
+Ahora ganamos más tiempo paralelizando! Probemos con un digito más grande en `muestra`
+
+```{r}
+muestra <- rnorm(100000)
+
+tic()
+proceso_purrr <- map_dbl(.x = muestra, ~ .x + reduce(.x, `+`))
+toc()
+
+tic()
+proceso_furrr <- future_map_dbl(.x = muestra, ~ .x + reduce(.x, `+`))
+toc()
+```
+
+La ganacia en tiempo es considerable! Pero ahora puede surgir la pregunta de cuando debemos paralelizar, y quizás no sea experto en el tema, pero mi experiencia me dice que si un proceso trabaja bien sin paralelizarse, no pensemos ni siquiera en paralelizarlo, pero si este proceso tiene una duración considerable es posible que paralelizarlo sea lo mejor, y como ya vimos medir el tiempo que ganamos es muy fácil, por lo que no veo que esto vaya a ser un atraso si al final nos va a terminar ahorrando más tiempo del que perdimos probando si la opción de paralelizar es viable.
+
+Para más información de `purrr` puede visitar el [sitio](https://purrr.tidyverse.org/index.html) de este paquete.
