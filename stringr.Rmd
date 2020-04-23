@@ -1,0 +1,189 @@
+---
+title: "Introducción a stringr"
+author: "Patrick Santamaría"
+date: "20/4/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+El paquete `stringr` pertenece a `tidyverse` por lo que con solo cargar `tidyverse` ya tenemos el paquete cargado. Este es un paquete que se enfoca en trabajar con cadenas de texto y su manipulación.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Algunas de las funciones utiles y disponibles en este paquete se muestran a continuación:
+
+# Manipulación de caracteres
+
+Estas funciones le permiten manipular caracteres individuales dentro de las cadenas en vectores de caracteres. Algunas de las funciones son las siguientes:
+
+- `str_count` sirve para contar la cantidad de veces que aparece un determinado patrón dentro de una cadena de texto. Veamos un ejemplo usando el vector de datos `fruit`.
+
+```{r}
+fruit %>% 
+  str_count("n")
+```
+
+- `str_detect` sirve para detectar si un determinado patrón está contenido en una cadena de texto.
+
+```{r}
+fruit %>% 
+  str_detect("apple") %>% 
+  table()
+```
+
+
+- `str_replace` sirve para remplazar ciert patrón por alguno otro dentro de una cadena de texto, pero solo lo hace para la primera vez que aparece, si lo queremos hacer para que lo reemplace todas las veces que aparece tenemos que usar `str_replace_all`
+
+```{r}
+x <- c("piña", "piña colada con piña", "mandarina", "naranja", "limon", "salsa de tomate")
+
+#
+x %>% 
+str_replace("piña", "pineapple")
+
+x %>% 
+str_replace_all("piña", "pineapple")
+```
+
+- `str_remove` sirve para remover un patrón de una cadena de texto, siqueremos que lo haga todas las veces que aparece el patrón dentro de la cadena es necesario usar `str_remove_all`
+
+```{r}
+x %>% 
+str_remove("piña")
+
+x %>% 
+str_remove_all("piña")
+```
+
+- `str_starts` y `str_ends` sirve para detectar cuando una cadena de texto inicia o termina con cierto patrón.
+
+```{r}
+x
+
+x %>% 
+  str_starts("p")
+
+
+x %>% 
+  str_ends("a")
+```
+
+- `str_which` funciona igual que `which` y lo que me da es la posición en la que se encuentra un patrón dentro de una cadena.
+
+```{r}
+x %>% 
+  str_which("manda")
+```
+
+Aquí por ejemplo me dice que el patrón `manda` solo se encuentra en la tercer posición del vector `x`.
+
+
+- `str_split` se usa para separar una cadena de texto por cierto patrón, si queremos verlo de manera simplificada y no como lista podemos usar el parámetro `simplify = TRUE`, o bien utilizar `str_split_fixed` y con el parámetro `n` se especifica el número de columnas.
+
+```{r}
+y <- c("Allan - Gomez", "Patrick - Santamaria", "Gabriel - Barrios", "Fabiola - Salazar")
+
+y %>% 
+  str_split(" - ")
+
+y %>% 
+  str_split_fixed(" - ", 1)
+
+y %>% 
+  str_split(" - ", simplify = TRUE)
+```
+
+- `str_match` se utiliza para encontrar 
+
+# Herramientas de espacios en blanco
+
+Sirven para agregar, eliminar y manipular espacios en blanco.
+
+- `str_pad` funciona para agregar espacios en blanco a una cadena de texto, se puede especificar en que parte se quiere agregar los espacios en blanco.
+
+```{r}
+#30 espacios a la izquierda
+str_pad("Allan", 30, "left")
+
+#30 espacios a ambos lados, es decir, 15 a cada lado
+str_pad("Allan", 30, "both")
+```
+
+- Por lo general lo que necesitamos es quitar espacios en blanco, la función `str_trim` quita los espacios al principio y al final de la cadena. Y con `str_squish` elimina espacios en blanco repetidos, así como los del inicio y el final.
+
+```{r}
+str_trim("         Allan estudia estadistica    ")
+
+str_squish("   Allan    estudia   estadistica    ")
+```
+
+# Transformación de cadenas
+
+Estas funciones sirven para modificar ciertas características de una cadena:
+
+- Las funciones `str_to_lower` y `str_to_upper` sirven para volver minúscula o mayúscula respectivamente una determinada cadena de texto.
+
+```{r}
+str_to_lower("CEDULA JURIDICA")
+
+str_to_upper("cedula juridica")
+```
+
+- La función `str_to_title` transforma la cadena de texto como si fuera un título, adoptando el formato de que todas las primeras letras de cada palabra son mayúsculas, por otro lado la función `str_to_sentence` lo que hace es hacer únicamente la primera letra de la cadena en mayúscula.
+
+```{r}
+str_to_title("gráfico de dispersión")
+
+str_to_sentence("grafico de dispersión")
+```
+
+Veamos un ejemplo modificando la columna `Species` del `df` para verlo aplicado a un set de datos.
+
+```{r}
+df <- iris
+
+df %>% 
+  head(10)
+
+df %>% 
+  mutate(Species = str_to_sentence(Species),
+         Species_mayuscula = str_to_upper(Species)) %>% 
+  head(10)
+```
+
+# Otras funciones útiles.
+
+Aquí se muestran algunas otras funciones de utilidad en este paquete.
+
+- `str_replace_na` esta función lo que hace es convertir los NA en "NA" o lo que sea que se indique en el parametro `replacement`
+
+```{r}
+str_replace_na(c(NA, "manzana", "pera", "uva"))
+
+str_replace_na(c(NA, "manzana", "pera", "uva"), replacement = "Perdido")
+```
+
+- `str_trunc` sirve para solo mostrar una parte de la cadena de texto, en el parámetro `ellipsis` se indica lo que se deberia poner en lugar de las letras que fueron removidas, por defecto es `"..."`
+¿
+```{r}
+fechas <- c("2019-12-01", "2019-12-01 567", "2019-12-01 422", "2019-12-01 afg")
+
+fechas %>% 
+  str_trunc(10, ellipsis = "")
+```
+
+- `str_length` nos da la cantidad el largo de la cadena de texto (tomando en cuenta espacios en blanco).
+
+```{r}
+fruit %>% 
+  str_length()
+```
+
+En general este paquete es muy amigable para trabajar con expresiones regulares, en esta introducción no incluí patrones de expresiones regulares porque es algo que requiere su tiempo para aprender, pero se puede aprender mucho más al respecto. El [cheat sheet](https://resources.rstudio.com/spanish-pdfs/strings-spanish) de este paquete trae bastante información relevante al sobre esto, pero entre otras cosas podemos ubicar vocales, lo que está dentro de dos paréntesis, lo que sigue despues de cierto numero, etc. En muchas ocasiones cuando estamos manejando data sets ocupamos quitarle las mayúsculas o los espacios en blanco a ciertas variables, el uso de `stringr` junto con `dplyr` como el ejemplo que vimos con `iris` puede ser útil para este tipo de situaciones.
+
+
+;'/
