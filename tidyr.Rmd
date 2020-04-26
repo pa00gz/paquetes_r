@@ -1,0 +1,233 @@
+---
+title: "tidyr"
+author: "Allan Martínez"
+date: "23 de abril de 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# **tidyr**
+
+La librería tidyr tiene el objetivo de crear datos tipo tidy, los datos tidy es donde:
+
+-Cada columna es una variable
+-Cada fila es una obervacion
+-Cada celda es un valor.
+
+Los datos Tidy describen una forma estándar de almacenamiento que se usa siempre que sea posible en el universo tidyverse. Se asegura que sus datos esten ordenados pasará menos tiempo luchando con otras herramientas y más tiempo analizando.
+
+###**Las 5 categorías principales donde se agrupan las funciones de tidyr**
+
+####**1) Pivotting**:
+Convierte entre formas largas y anchas los datos, las funciones son pivot_longer() y pivot_wider()
+
+**pivot_longer**: alarga los datos, aumentando el número de filas y disminuyendo el número de columnas
+
+pivot_longer(data, cols, names_to = "name",names_prefix = NULL,names_sep = NULL,
+names_pattern = NULL,names_ptypes = list(),names_repair = "check_unique",values_to = "value",values_drop_na = FALSE,values_ptypes = list())
+
+names_pattern takes the same specification as extract(), a regular expression
+containing matching groups (()).
+
+```{r}
+relig_income
+relig_income %>%
+pivot_longer(-religion, names_to = "income", values_to = "count")
+#agarra todas las columnas y las agrupa en "income" menos la columna religion, y los valores van a una nueva columna que se llama "count".
+
+billboard
+billboard %>%
+pivot_longer(
+cols = starts_with("wk"),
+names_to = "week",
+names_prefix = "wk",
+values_to = "rank",
+values_drop_na = TRUE
+)
+
+#varias variables almecenadas en los nombres de las columnas
+who %>% pivot_longer(
+cols = new_sp_m014:newrel_f65,
+names_to = c("diagnosis", "gender", "age"),
+names_pattern = "new_?(.*)_(.)(.*)",
+values_to = "count"
+)
+
+#multiples observaciones por fila
+anscombe
+anscombe %>%
+pivot_longer(everything(),
+names_to = c(".value", "set"), #el .value lo que hace es crear una columna para x , y
+names_pattern = "(.)(.)"
+)
+```
+
+**pivot_wider**: amplía los datos, aumentando el número de columnas y disminuyendo el número de filas
+
+```{r}
+fish_encounters
+fish_encounters %>%
+pivot_wider(names_from = station, values_from = seen)
+#Pone cada "nivel" de station y una columna
+
+# LLenar los valores faltantes
+fish_encounters %>%
+pivot_wider(
+names_from = station,
+values_from = seen,
+values_fill = list(seen = 0)
+)
+
+#Generar columnas y los nombres con multiples variables
+us_rent_income %>%
+pivot_wider(names_from = variable, values_from = c(estimate, moe))
+
+#Puede realizar funciones con values_fn
+warpbreaks <- as_tibble(warpbreaks[c("wool", "tension", "breaks")])
+warpbreaks
+warpbreaks %>%
+pivot_wider(
+names_from = wool,
+values_from = breaks,
+values_fn = list(breaks = mean)
+)
+```
+
+
+####**2) Rectangling**:
+Convierte listas profundamente anindades (como JSON) en tidy tibble,. algunas funciones son unnest_longer(), unnest_wider(), hoist().
+
+**unnest_longer**: Convierte cada elemento de una columna/lista en una fila. Esta función conserva las columnas pero cambia las filas
+unnest_longer(data,col,values_to = NULL,indices_to = NULL,indices_include = NULL,names_repair = "check_unique",simplify = TRUE,ptype = list())
+
+**unnest_wider**: Convierte cada elemento de una columna-lista en una columna, preserva las filas pero cambia la columnas, si aplica esto a una lista de dataframes, las lineas se preservan entonces cada columna se convierte en una lista-columna de tamaño 1.
+
+**hoist()**: Permite extraer componentes selectivamente de una columna/lista de nivel superior, utilizando una sintaxis similar a purr::pluck()
+
+unnest_wider(data,col,names_sep = NULL,simplify = TRUE,names_repair = "check_unique", ptype = list())
+
+```{r}
+df <- tibble(
+  character = c("Toothless", "Dory"),
+  metadata = list(
+    list(
+      species = "dragon",
+      color = "black",
+      films = c(
+        "How to Train Your Dragon",
+        "How to Train Your Dragon 2",
+        "How to Train Your Dragon: The Hidden World")),
+    list(
+      species = "clownfish",
+      color = "blue",
+      films = c("Finding Nemo", "Finding Dory"))))
+df
+
+# Convierte los componentes de los metadatos en columnas
+df %>% unnest_wider(metadata)
+
+# extraer solo componentes específicos
+df %>% hoist(metadata,
+species = "species",
+first_film = list("films", 1L),
+third_film = list("films", 3L)
+)
+
+df %>%
+unnest_wider(metadata) %>%
+unnest_longer(films) 
+# unnest_longer() es util cuanod cada componente de una lista deberia ser una fila
+
+df <- tibble(
+x = 1:3,
+y = list(NULL, 1:3, 4:5)
+)
+df
+
+# Crear automaticamente nombres si se amplia, pone a y en forma de columna
+df %>% unnest_longer(y)
+
+#de manera similar si los vectores son nombrados, valores de y en columna
+df %>% unnest_wider(y)
+
+df <- tibble(
+x = 1:2,
+y = list(c(a = 1, b = 2), c(a = 10, b = 11, c = 12))
+)
+df
+df %>% unnest_wider(y)
+df %>% unnest_longer(y)
+
+
+```
+
+####**3) Nesting(nest())**: 
+Convierte los datos agrupados en un formulario en el que cada grupo se convierte en una sola fila que contiene un marco de datos anidados y la y unnesting(unnest()) hace lo contrario.
+
+**nest**
+
+```{r}
+df <- tibble(x = c(1, 1, 1, 2, 2, 3), y = 1:6, z = 6:1)
+df
+# una fila por cada combinación unica de datos no anidados
+
+df %>% nest(data = c(y, z))
+# chop hace algo similar pero mantien columnas indivuales
+df %>% chop(c(y, z))
+
+#usando tidyselect
+df %>% nest(data = one_of("y", "z"))
+
+iris
+iris %>% nest(data = -Species)
+nest_vars <- names(iris)[1:4]
+iris %>% nest(data = one_of(nest_vars))
+iris %>%
+nest(petal = starts_with("Petal"), sepal = starts_with("Sepal"))
+iris %>%
+nest(width = contains("Width"), length = contains("Length"))
+
+# Anidar un marco de datos agrupados anida todas las variables aparte de los grupos
+library(dplyr)
+fish_encounters %>%
+group_by(fish) %>%
+nest()
+# la anidación suele ser util para crear modelos por grupo
+mtcars %>%
+group_by(cyl) %>%
+nest() %>%
+mutate(models = lapply(data, function(df) lm(mpg ~ wt, data = df)))
+```
+
+**unnest**
+```{r}
+# unnest() esta diseñado principalmente para trabajar con listas de marcos de datos
+df <- tibble(
+x = 1:3,
+y = list(
+NULL,
+tibble(a = 1, b = 2),
+tibble(a = 1:3, b = 3:1)
+)
+)
+df
+df %>% unnest(y)
+df %>% unnest(y, keep_empty = TRUE)
+
+#se puede desanidar multiples columnas simultaneamente 
+df <- tibble(
+a = list(c("a", "b"), "c"),
+b = list(1:2, 3),
+c = c(11, 22)
+)
+df
+df %>% unnest(c(a, b))
+
+#desanidar una columna a la vez, genera el producto cartesiano
+df %>% unnest(a) %>% unnest(b)
+
+```
