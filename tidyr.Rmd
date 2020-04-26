@@ -1,0 +1,427 @@
+---
+title: "tidyr"
+author: "Allan Martínez"
+date: "23 de abril de 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# **tidyr**
+
+La librería tidyr tiene el objetivo de crear datos tipo tidy, los datos tidy es donde:
+
+-Cada columna es una variable
+-Cada fila es una obervacion
+-Cada celda es un valor.
+
+Los datos Tidy describen una forma estándar de almacenamiento que se usa siempre que sea posible en el universo tidyverse. Se asegura que sus datos esten ordenados pasará menos tiempo luchando con otras herramientas y más tiempo analizando.
+
+###**Las 5 categorías principales donde se agrupan las funciones de tidyr**
+
+####**1) Pivotting**:
+Convierte entre formas largas y anchas los datos, las funciones son pivot_longer() y pivot_wider()
+
+**pivot_longer**: alarga los datos, aumentando el número de filas y disminuyendo el número de columnas
+
+pivot_longer(data, cols, names_to = "name",names_prefix = NULL,names_sep = NULL,
+names_pattern = NULL,names_ptypes = list(),names_repair = "check_unique",values_to = "value",values_drop_na = FALSE,values_ptypes = list())
+
+names_pattern takes the same specification as extract(), a regular expression
+containing matching groups (()).
+
+```{r}
+relig_income
+relig_income %>%
+pivot_longer(-religion, names_to = "income", values_to = "count")
+#agarra todas las columnas y las agrupa en "income" menos la columna religion, y los valores van a una nueva columna que se llama "count".
+
+billboard
+billboard %>%
+pivot_longer(
+cols = starts_with("wk"),
+names_to = "week",
+names_prefix = "wk",
+values_to = "rank",
+values_drop_na = TRUE
+)
+
+#varias variables almecenadas en los nombres de las columnas
+who %>% pivot_longer(
+cols = new_sp_m014:newrel_f65,
+names_to = c("diagnosis", "gender", "age"),
+names_pattern = "new_?(.*)_(.)(.*)",
+values_to = "count"
+)
+
+#multiples observaciones por fila
+anscombe
+anscombe %>%
+pivot_longer(everything(),
+names_to = c(".value", "set"), #el .value lo que hace es crear una columna para x , y
+names_pattern = "(.)(.)"
+)
+```
+
+**pivot_wider**: amplía los datos, aumentando el número de columnas y disminuyendo el número de filas
+
+```{r}
+fish_encounters
+fish_encounters %>%
+pivot_wider(names_from = station, values_from = seen)
+#Pone cada "nivel" de station y una columna
+
+# LLenar los valores faltantes
+fish_encounters %>%
+pivot_wider(
+names_from = station,
+values_from = seen,
+values_fill = list(seen = 0)
+)
+
+#Generar columnas y los nombres con multiples variables
+us_rent_income %>%
+pivot_wider(names_from = variable, values_from = c(estimate, moe))
+
+#Puede realizar funciones con values_fn
+warpbreaks <- as_tibble(warpbreaks[c("wool", "tension", "breaks")])
+warpbreaks
+warpbreaks %>%
+pivot_wider(
+names_from = wool,
+values_from = breaks,
+values_fn = list(breaks = mean)
+)
+```
+
+
+####**2) Rectangling**:
+Convierte listas profundamente anindades (como JSON) en tidy tibble,. algunas funciones son unnest_longer(), unnest_wider(), hoist().
+
+**unnest_longer**: Convierte cada elemento de una columna/lista en una fila. Esta función conserva las columnas pero cambia las filas
+unnest_longer(data,col,values_to = NULL,indices_to = NULL,indices_include = NULL,names_repair = "check_unique",simplify = TRUE,ptype = list())
+
+**unnest_wider**: Convierte cada elemento de una columna-lista en una columna, preserva las filas pero cambia la columnas, si aplica esto a una lista de dataframes, las lineas se preservan entonces cada columna se convierte en una lista-columna de tamaño 1.
+
+**hoist()**: Permite extraer componentes selectivamente de una columna/lista de nivel superior, utilizando una sintaxis similar a purr::pluck()
+
+unnest_wider(data,col,names_sep = NULL,simplify = TRUE,names_repair = "check_unique", ptype = list())
+
+```{r}
+df <- tibble(
+  character = c("Toothless", "Dory"),
+  metadata = list(
+    list(
+      species = "dragon",
+      color = "black",
+      films = c(
+        "How to Train Your Dragon",
+        "How to Train Your Dragon 2",
+        "How to Train Your Dragon: The Hidden World")),
+    list(
+      species = "clownfish",
+      color = "blue",
+      films = c("Finding Nemo", "Finding Dory"))))
+df
+
+# Convierte los componentes de los metadatos en columnas
+df %>% unnest_wider(metadata)
+
+# extraer solo componentes específicos
+df %>% hoist(metadata,
+species = "species",
+first_film = list("films", 1L),
+third_film = list("films", 3L)
+)
+
+df %>%
+unnest_wider(metadata) %>%
+unnest_longer(films) 
+# unnest_longer() es util cuanod cada componente de una lista deberia ser una fila
+
+df <- tibble(
+x = 1:3,
+y = list(NULL, 1:3, 4:5)
+)
+df
+
+# Crear automaticamente nombres si se amplia, pone a y en forma de columna
+df %>% unnest_longer(y)
+
+#de manera similar si los vectores son nombrados, valores de y en columna
+df %>% unnest_wider(y)
+
+df <- tibble(
+x = 1:2,
+y = list(c(a = 1, b = 2), c(a = 10, b = 11, c = 12))
+)
+df
+df %>% unnest_wider(y)
+df %>% unnest_longer(y)
+
+
+```
+
+####**3) Nesting(nest())**: 
+Convierte los datos agrupados en un formulario en el que cada grupo se convierte en una sola fila que contiene un marco de datos anidados y la y unnesting(unnest()) hace lo contrario.
+
+**nest**
+
+```{r}
+df <- tibble(x = c(1, 1, 1, 2, 2, 3), y = 1:6, z = 6:1)
+df
+# una fila por cada combinación unica de datos no anidados
+
+df %>% nest(data = c(y, z))
+# chop hace algo similar pero mantien columnas indivuales
+df %>% chop(c(y, z))
+
+#usando tidyselect
+df %>% nest(data = one_of("y", "z"))
+
+iris
+iris %>% nest(data = -Species)
+nest_vars <- names(iris)[1:4]
+iris %>% nest(data = one_of(nest_vars))
+iris %>%
+nest(petal = starts_with("Petal"), sepal = starts_with("Sepal"))
+iris %>%
+nest(width = contains("Width"), length = contains("Length"))
+
+# Anidar un marco de datos agrupados anida todas las variables aparte de los grupos
+library(dplyr)
+fish_encounters %>%
+group_by(fish) %>%
+nest()
+# la anidación suele ser util para crear modelos por grupo
+mtcars %>%
+group_by(cyl) %>%
+nest() %>%
+mutate(models = lapply(data, function(df) lm(mpg ~ wt, data = df)))
+```
+
+**unnest**
+```{r}
+# unnest() esta diseñado principalmente para trabajar con listas de marcos de datos
+df <- tibble(
+x = 1:3,
+y = list(
+NULL,
+tibble(a = 1, b = 2),
+tibble(a = 1:3, b = 3:1)
+)
+)
+df
+df %>% unnest(y)
+df %>% unnest(y, keep_empty = TRUE)
+
+#se puede desanidar multiples columnas simultaneamente 
+df <- tibble(
+a = list(c("a", "b"), "c"),
+b = list(1:2, 3),
+c = c(11, 22)
+)
+df
+df %>% unnest(c(a, b))
+
+#desanidar una columna a la vez, genera el producto cartesiano
+df %>% unnest(a) %>% unnest(b)
+
+```
+
+####**4) División y combinación de columnas tipo caracter**:
+Usar separate() y extract() para extraer un columna/caracter en multiples columnas, use unite() para combinar multiples columna en una sola columna/caracter 
+
+**separate()**: separate(data, col, into, sep = "[^[:alnum:]]+", remove = TRUE, convert = FALSE, extra = "warn",fill = "warn", ... )
+para extra y fill se tiene las opciones:
+• "warn" (the default): emite una advertencia y suelta valores adicionales.
+• "drop": soltar cualquier valor extra sin previo aviso.
+• "merge": solo se divide en la mayoría de los tiempos
+
+```{r}
+library(dplyr)
+df <- data.frame(x = c(NA, "a.b", "a.d", "b.c"))
+df
+df %>% separate(x, c("A", "B"))
+# si solo se quiere la segunda variable
+df %>% separate(x, c(NA, "B"))
+
+df <- data.frame(x = c("a", "a b", "a b c", NA))
+df
+df %>% separate(x, c("a", "b", "c"))
+df %>% separate(x, c("a", "b"))
+df %>% separate(x, c("a", "b"), extra = "drop", fill = "right")
+df %>% separate(x, c("a", "b"), extra = "merge", fill = "left")
+
+#si usted solo quiere separar un específico numero de item use extra "merge"
+df <- data.frame(x = c("x: 123", "y: error: 7"))
+df
+df %>% separate(x, c("key", "value"), ": ", extra = "merge")
+
+#usando expresiones regulares
+df <- data.frame(x = c(NA, "a?b", "a.d", "b:c"))
+df
+df %>% separate(x, c("A","B"), sep = "([\\.\\?\\:])")
+
+#convertir la clase de la columna, en esta ocasión a int.
+df <- data.frame(x = c("a:1", "a:2", "c:4", "d", NA))
+df
+df %>% separate(x, c("key","value"), ":") %>% str
+df %>% separate(x, c("key","value"), ":", convert = TRUE) %>% str
+
+
+```
+
+**separate_rows()**: si una variable contiene observaciones con múltiples valores delimitados, esto separa los valores y coloca cada uno su propia fila.
+separate_rows(data, ..., sep = "[^[:alnum:].]+", convert = FALSE)
+
+```{r}
+df <- data.frame(
+x = 1:3,
+y = c("a", "d,e,f", "g,h"),
+z = c("1", "2,3,4", "5,6"),
+stringsAsFactors = FALSE
+)
+df
+separate_rows(df, y, z, convert = TRUE)
+```
+
+
+**extract()**: Extrae un columna/caracter en mulitples columnas usando expresiones regualres.
+extract(data, col, into, regex = "([[:alnum:]]+)", remove = TRUE, convert = FALSE, ...)
+
+```{r}
+df <- data.frame(x = c(NA, "a-b", "a-d", "b-c", "d-e"))
+df
+df %>% extract(x, "A")
+df %>% extract(x, c("A", "B"), "([[:alnum:]]+)-([[:alnum:]]+)")
+# si no hay match pone NA:
+df %>% extract(x, c("A", "B"), "([a-d]+)-([a-d]+)")
+```
+
+**unite()**: el complemento de extract(), usa expresiones regulares para capturar grupos y unirlos.
+unite(data, col, ..., sep = "_", remove = TRUE, na.rm = FALSE)
+
+```{r}
+## expand_grid: crea un tibble de todas las combinaciones de entradas
+expand_grid(x = 1:3, y = 1:2)
+expand_grid(l1 = letters, l2 = LETTERS)
+#usted puede expandir incluso dataframes
+expand_grid(df = data.frame(x = 1:2, y = c(2, 1)), z = 1:3)
+
+df <- expand_grid(x = c("a", NA), y = c("b", NA))
+df
+df %>% unite("z", x:y, remove = FALSE)
+# Remover valores faltantes
+df %>% unite("z", x:y, na.rm = TRUE, remove = FALSE)
+# Separate es casi el complemento de unite
+df %>%
+unite("xy", x:y) %>%
+separate(xy, c("x", "y"))
+# pero note que `x` & `y` contienen filas "NA" no NA)
+
+
+```
+
+##**5)**
+Hacer implícitos los valores perdidos explícitos con complete(), hacer los valores explícitos perdidos implícitos son drop_na(), reemplazar los valores perdidos con el valor siguiente o anterior con fill(), o con valor conocido replace_na()
+
+**complete()**:
+Completar un data frame con combinaciones de datos perdidos
+
+```{r}
+df <- tibble(
+group = c(1:2, 1),
+item_id = c(1:2, 2),
+item_name = c("a", "b", "b"),
+value1 = 1:3,
+value2 = 4:6
+)
+df
+df %>% complete(group, nesting(item_id, item_name))
+#con fill se llena el valor na
+df %>% complete(group, nesting(item_id, item_name), fill = list(value1 = 0))
+```
+
+**drop_na()**
+
+```{r}
+df <- tibble(x = c(1, 2, NA), y = c("a", NA, "b"))
+df
+df %>% drop_na()
+df %>% drop_na(x)
+```
+
+**fill()**
+
+```{r}
+df <- data.frame(Month = 1:12, Year = c(2000, rep(NA, 11)))
+df
+df %>% fill(Year)
+```
+
+**replace_na()**
+
+```{r}
+df <- tibble(x = c(1, 2, NA), y = c("a", NA, "b"), z = list(1:5, NULL, 10:20))
+df
+df %>% replace_na(list(x = 0, y = "unknown"))
+df %>% mutate(x = replace_na(x, 0))
+
+df %>% replace_na(list(z = list(5)))
+
+df$x %>% replace_na(0)
+df$y %>% replace_na("unknown")
+
+```
+
+##**6) Otras funciones**:
+
+**expand(*)**: expande el marco de datos para incluir todas las combinaciones de valores.
+Nota: a menudo es util junto con left_join() si desea convertir valores perdidos implicitos en valores perdidos explicitos, puede utilizar anti_join() para ver cuales valores faltan
+
+```{r}
+mtcars
+#combinación de todas las posibles entre VS y CYl, incluso aquellas que no estan presente en los datos.
+expand(mtcars, vs, cyl)
+#solo las presentes en los datos
+expand(mtcars, nesting(vs, cyl))
+
+
+df <- tibble(
+year = c(2010, 2010, 2010, 2010, 2012, 2012, 2012),
+qtr = c( 1, 2, 3, 4, 1, 2, 3),
+return = rnorm(7)
+)
+df
+df %>% expand(year, qtr)
+df %>% expand(year = 2010:2012, qtr)
+df %>% expand(year = full_seq(year, 1), qtr)
+
+# a cada persona se le dio one de dos tratamientos, repetido 3 veces, pero algunas de las replicas aun no aparecen
+experiment <- tibble(
+name = rep(c("Alex", "Robert", "Sam"), c(3, 2, 1)),
+trt = rep(c("a", "b", "a"), c(3, 2, 1)),
+rep = c(1, 2, 3, 1, 2, 1),
+measurement_1 = runif(6),
+measurement_2 = runif(6)
+)
+experiment
+
+#Podemos averiguar el conjunto de datos con expand(), cada persona solo recibe un tratamiento por lo que anidamos el nombre con trt juntos
+all <- experiment %>% expand(nesting(name, trt), rep)
+all
+
+#podemos usar anti_join() para averiguar cuales observaciones faltan
+all %>% anti_join(experiment)
+
+#usar right_join() para añadir el apropiado valor perdido en los datos originales.
+
+experiment %>% right_join(all)
+
+experiment %>% complete(nesting(name, trt), rep)
+
+```
