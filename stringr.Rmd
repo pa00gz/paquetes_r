@@ -91,13 +91,11 @@ y %>%
   str_split(" - ")
 
 y %>% 
-  str_split_fixed(" - ", 1)
+  str_split_fixed(" - ", 2)
 
 y %>% 
   str_split(" - ", simplify = TRUE)
 ```
-
-- `str_match` se utiliza para encontrar 
 
 # Herramientas de espacios en blanco
 
@@ -168,7 +166,6 @@ str_replace_na(c(NA, "manzana", "pera", "uva"), replacement = "Perdido")
 ```
 
 - `str_trunc` sirve para solo mostrar una parte de la cadena de texto, en el parámetro `ellipsis` se indica lo que se deberia poner en lugar de las letras que fueron removidas, por defecto es `"..."`
-¿
 ```{r}
 fechas <- c("2019-12-01", "2019-12-01 567", "2019-12-01 422", "2019-12-01 afg")
 
@@ -185,5 +182,3 @@ fruit %>%
 
 En general este paquete es muy amigable para trabajar con expresiones regulares, en esta introducción no incluí patrones de expresiones regulares porque es algo que requiere su tiempo para aprender, pero se puede aprender mucho más al respecto. El [cheat sheet](https://resources.rstudio.com/spanish-pdfs/strings-spanish) de este paquete trae bastante información relevante al sobre esto, pero entre otras cosas podemos ubicar vocales, lo que está dentro de dos paréntesis, lo que sigue despues de cierto numero, etc. En muchas ocasiones cuando estamos manejando data sets ocupamos quitarle las mayúsculas o los espacios en blanco a ciertas variables, el uso de `stringr` junto con `dplyr` como el ejemplo que vimos con `iris` puede ser útil para este tipo de situaciones.
 
-
-;'/
