@@ -9,7 +9,7 @@ editor_options:
 
 ¿Qué es tidymodels?
 
-Ess una colección de paquetes para modelado y machine learning utilizando los principios `tidyverse`. Al igual que `tidyverse` consta de muchos paquetes principales, como `ggplot2` y `dplyr`, `tidymodels` también consta de varios paquetes principales, algunos de estos son:
+Ess una colección de paquetes para modelado y machine learning que utiliza los principios de `tidyverse`. Al igual que `tidyverse` consta de muchos paquetes principales, como `ggplot2` y `dplyr`, `tidymodels` también consta de varios paquetes principales, algunos de estos son:
 
 - `rsample`: para dividir muestras (por ejemplo, entrenamiento / prueba o validación cruzada)
 
@@ -42,7 +42,8 @@ Ahora bien, para ver el uso de este paquete vamos a realizar un ejemplo con un d
 load("data/pulsar.Rdata")
 ```
 
-Este dataset clasifica una estrella como pulsar o no (estrella que emite radiación muy intensa a intervalos cortos y regulares), a partir de una serie de medidas en las que no se va a entrar en mucho detalle. Es importante verificar que la variable a predecir esté definida como factor si vamos a realizar un modelo de clasificación binaria.
+Este dataset clasifica una estrella como pulsar(estrella que emite radiación muy intensa a intervalos cortos y regulares) o no
+, a partir de una serie de medidas en las que no se va a entrar en mucho detalle. Es importante verificar que la variable a predecir esté definida como factor si vamos a realizar un modelo de clasificación binaria.
 
 ```{r}
 pulsares <- pulsares %>% 
@@ -79,7 +80,7 @@ Para este análisis vamos a estimar más adelante parámetros por medio de valid
 vc_pulsar <- vfold_cv(pulsar_train, v = 10, repeats = 3) #esto se le hace al conjunto de entrenamiento
 ```
 
-# Paso 4 especificar la receta
+# Paso 4 : especificar la receta
 
 Las recetas le permiten especificar el papel de cada variable como respuesta o variable predictiva (usando una `formula`), y cualquier paso de preprocesamiento que desee realizar (como normalización, imputación, PCA, etc.).
 
@@ -128,13 +129,13 @@ pulsar_test_preprocessed
 
 # Paso 6 : especificar el modelo
 
-Para especificar el modelo se usa el paquete `parsnip`. En este caso vamos a ejecutar dos modelos, y a cada uno de ellos les vamos a a justar un parámetro, para especificar este ajuste vamos a usar la función `tune()` y posteriormente vamos a ajustarlos utilizando la validación cruzada que habíamos creado anteriormente.
+Para especificar el modelo se usa el paquete `parsnip`. En este caso vamos a ejecutar dos modelos, y a cada uno de ellos le vamos a a justar un parámetro, para especificar este ajuste vamos a usar la función `tune()` y posteriormente vamos a ajustarlos utilizando la validación cruzada que habíamos creado anteriormente.
 
-Los posibles modelos que se pueden aplicar los puede encontrar [aquí](https://tidymodels.github.io/parsnip/articles/articles/Models.html).
+Los posibles modelos que se pueden aplicar con  `parsnip`. los puede encontrar [aquí](https://tidymodels.github.io/parsnip/articles/articles/Models.html).
 
 Hay algunos componentes principales que debe proporcionar para la especificación del modelo.
 
-- El tipo de modelo: el tipo de modelo desea ajustar, establecer usando una función diferente dependiendo del modelo, como `rand_forest()` para bosque aleatorio, `logistic_reg()` para regresión logística, `svm_poly()` para un modelo polinomial SVM, etc.)
+- El tipo de modelo: el tipo de modelo que se desea ajustar, se establece usando una función diferente dependiendo del modelo que se quiera, como `rand_forest()` para bosque aleatorio, `logistic_reg()` para regresión logística, `svm_poly()` para un modelo polinomial SVM, etc.
 
 - Los argumentos: los parámetros del modelo, se establecen usando `set_args()`.
 
@@ -162,9 +163,9 @@ modelo_svm <- svm_rbf() %>%
   set_mode("classification")
 ```
 
-# Paso 7:  poner todo en un flujo de trabajo
+# Paso 7 : poner todo en un flujo de trabajo
 
-Ahora estamos listos para unir el modelo y las recetas en un flujo de trabajo. Para ello vamos a iniciar un flujo de trabajo usando `workflow ()` (del paquete `workflow`), luego vamos a agregar la receta y por ultimo el modelo. Como en este caso tenemos dos modelos a la misma vez vamos a necesitar dos flujos de trabajos separados, y de aqui en adelante todo lo vamos a hacer por separado para ambos modelos.
+Ahora estamos listos para unir el modelo y las recetas en un flujo de trabajo. Para ello vamos a iniciar un flujo de trabajo usando `workflow()` (del paquete `workflow`), luego vamos a agregar la receta y por ultimo el modelo. Como en este caso tenemos dos modelos a la misma vez vamos a necesitar dos flujos de trabajos separados, y de aqui en adelante todo lo vamos a hacer por separado para ambos modelos.
 
 ```{r}
 # Modelo redes neuronales-----------------------------------------------------------------------------
@@ -187,9 +188,9 @@ workflow_svm <- workflow() %>%
 
 # Paso 8 : ajustar los parámetros
 
-Recordemos que anteriormente creamos el objeto `vc_pulsar` para ajustar los parametros con este metodo. Pues bien aqui lo vamos a utilizar. Es importante mencionar que debemos tener instalado los paquetes de los cuales proviene el modelo, pues sino nos va a pedir que lo instalemos, en este caso debemos tener instalado `nnet` y `kernlab`.
+Recordemos que anteriormente creamos el objeto `vc_pulsar` para ajustar los parametros con este metodo. Pues bien aqui lo vamos a utilizar. Es importante mencionar que debemos tener instalado los paquetes de los cuales proviene el modelo, pues sino nos va a pedir que los instalemos, en este caso debemos tener instalado `nnet` y `kernlab`.
 
-Entonces  para hacer el ajuste primero definimos los valores que queremos probar del parámetro que vamos a ajustar en la función `expand.grid()`, seguidamente con la función `tune_grid()` lo ajustamos, especificando el flujo de trabajo, el metodo de validacion cruzada que ibamos a usar, el objeto hecho con `expand.grid()` y las metricas que queremos usar para determinar cual es el mejor parámetro, en este caso `roc_auc` y `accuracy`.
+Entonces  para hacer el ajuste primero definimos los valores que queremos probar del parámetro que vamos a ajustar, esto lo hacemos usando la función `expand.grid()`, seguidamente con la función `tune_grid()` lo ajustamos, especificando el flujo de trabajo, el metodo de validacion cruzada que ibamos a usar, el objeto hecho con `expand.grid()` y las metricas que queremos usar para determinar cual es el mejor parámetro, en este caso `roc_auc` y `accuracy`.
 
 Para observar los resultados de manera simplificada podemos utilizar la función `collect_metrics`.
 
@@ -261,7 +262,7 @@ workflow_svm <- workflow_svm %>%
 
 # Paso 10 : ajustar el modelo final
 
-Ahora bien, ya que tenemos todo dentro de nuestro flujo de trabajo podemos ajustar el modelo basandonos en ese flujo de trabajo, para ello aplicaremos la funcion `last_fit()` a nuestro flujo de trabajo y especificaremos el objeto `pulsar_split`. Esto entrenará automáticamente el modelo especificado por el flujo de trabajo utilizando los datos de entrenamiento y producirá evaluaciones basadas en los datos de prueba.
+Ahora bien, ya que tenemos todo dentro de nuestro flujo de trabajo, podemos ajustar el modelo basandonos en ese flujo de trabajo, para ello aplicaremos la funcion `last_fit()` a nuestro flujo de trabajo y especificaremos el objeto `pulsar_split`. Esto entrenará automáticamente el modelo especificado por el flujo de trabajo utilizando los datos de entrenamiento y producirá evaluaciones basadas en los datos de prueba.
 
 ```{r}
 # Modelo redes neuronales-----------------------------------------------------------------------------
@@ -276,7 +277,7 @@ svm_fit <- workflow_svm %>%
   last_fit(pulsar_split)
 ```
 
-El objeto de ajuste que se crea es un objeto similar a un marco de datos, específicamente, es un tibble con columnas de lista. Esta es una característica muy buena de `tidymodels` (y es lo que hace que funcione tan bien con el `tidyverse`) ya que puede hacer todas sus operaciones `tidyverse` en el objeto de ajuste del modelo.
+El objeto de ajuste que se crea es un objeto similar a un marco de datos, específicamente, un tibble con columnas de lista. Esta es una característica muy buena de `tidymodels` (y es lo que hace que funcione tan bien con el `tidyverse`) ya que puede hacer todas sus operaciones `tidyverse` en el objeto de ajuste del modelo. Utilizando el paquete `purrr` podemos hacer un mejor manejo de este tipo de variables anidadas, aunque si no está familiarizado con el paquete hay otras opciones que proporciona `tidymodels`.
 
 # Paso 11 : obtener resultados de la evaluación
 
@@ -300,7 +301,9 @@ test_redes
 test_svm
 ```
 
-Como observamos ambos modelos producen valores cercanos a 1, lo que para este caso nos da una señal de que ambos modelos tienen alta capacidad predictiva. Si queremos obtener las predicciones podemos usar la función `pull()` de el paquete `dplyr`, estas predicciones las sacamos de la columna `.predictions` del objeto de ajuste del modelo.
+Como observamos ambos modelos producen valores cercanos a 1, lo que para este caso nos da una señal de que ambos modelos tienen alta capacidad predictiva.
+
+Si queremos obtener las predicciones podemos usar la función `pull()` de el paquete `dplyr`, estas predicciones las sacamos de la columna `.predictions` del objeto de ajuste del modelo.
 
 ```{r}
 # Modelo redes neuronales-----------------------------------------------------------------------------
@@ -317,3 +320,6 @@ svm_test_predictions <- svm_fit %>%
 svm_test_predictions
 ```
 
+Este fue un breve ejemplo y que quizás deben incluirse muchos más pasos dentro del procedimiento, como por ejemplo una exploración previa de los datos, establecer pasos de preprocesamiento más rigurosos, hacer algunos análisis gráficos para verificar el comportamiento de las variables en relación a la variable respuesta, entre otras cosas.
+
+Puede encontrar la lista de funciones y el paquete al que pertenece cada una de las funciones [aquí](https://tidymodels.github.io/tidymodels/articles/extras/Functions.html).
