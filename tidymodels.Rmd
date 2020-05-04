@@ -1,0 +1,325 @@
+---
+title: "Tidymodels"
+author: "Patrick Santamaría"
+date: "28/4/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+¿Qué es tidymodels?
+
+Ess una colección de paquetes para modelado y machine learning que utiliza los principios de `tidyverse`. Al igual que `tidyverse` consta de muchos paquetes principales, como `ggplot2` y `dplyr`, `tidymodels` también consta de varios paquetes principales, algunos de estos son:
+
+- `rsample`: para dividir muestras (por ejemplo, entrenamiento / prueba o validación cruzada)
+
+- `recipes`: para preprocesamiento.
+
+- `parsnip`: para especificar el modelo.
+
+- `yardstick`: para evaluar el modelo.
+
+A como se puede cargar todo el conjunto de paquetes `tidyverse` escribiendo la `library(tidyverse)`, puede cargar todo el conjunto de paquetes `tidymodels` con `library(tidymodels)`.
+
+En esta demo utilizaremos además dos paquetes extra (estos se deben cargar por aparte pues no vienen dentro de `tidymodels`):
+
+- `tune`: para el procedimiento de ajuste de parámetros.
+
+- `workflows`: para unir todo nuestro flujo de trabajo.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tune)
+library(workflows)
+library(tidyverse)
+library(tidymodels)
+```
+
+Ahora bien, para ver el uso de este paquete vamos a realizar un ejemplo con un data set `pulsar.Rdata`
+
+```{r}
+load("data/pulsar.Rdata")
+```
+
+Este dataset clasifica una estrella como pulsar(estrella que emite radiación muy intensa a intervalos cortos y regulares) o no
+, a partir de una serie de medidas en las que no se va a entrar en mucho detalle. Es importante verificar que la variable a predecir esté definida como factor si vamos a realizar un modelo de clasificación binaria.
+
+```{r}
+pulsares <- pulsares %>% 
+  mutate(Clase = as.factor(Clase))
+
+glimpse(pulsares)
+```
+
+Especificar un modelo y evaluarlo usando tidymodels requiere una serie de pasos que se explicarán a continuación:
+
+# Paso 1 : dividir en datos de prueba y datos de entrenamiento
+
+Esto lo podemos hacer con el comando `initial_split` y en el parámetro `prop` especificamos la proporción del data set que queremos tomar como datos de entrenamiento, en este caso 70% van a ser datos de entrenamiento y 30% de prueba. Si imprimimos este objeto nos muestra el número de datos de entrenamiento/prueba/total.
+
+```{r}
+pulsar_split <- initial_split(pulsares, prop = 0.7)
+pulsar_split
+```
+
+# Paso 2 : hacer objeto de datos de entrenamiento y de datos de prueba
+
+Como estamos empezando lo mejor es separar los datos en objetos para entender mejor a que se le aplican las cosas. Para extraer el conjunto de entrenamiento de `pulsar split` se usa la función `training` y para obtener los datos de prueba se usa `testing`
+
+```{r}
+pulsar_train <- pulsar_split %>% training()
+pulsar_test <- pulsar_split %>% testing()
+```
+
+# Paso 3 : definir objeto para validación cruzada 
+
+Para este análisis vamos a estimar más adelante parámetros por medio de validación cruzada, por lo que debemos crear un objeto que nos ejecute este procedimiento. Para ello usamos la función `vfold_cv` que nos divide el conjunto de datos de entrenamiento en `v` particiones aleatorias e incluso podemos especificar el número de veces que queremos que se repita la partición aleatoria con el párametro `repeats`.
+
+```{r}
+vc_pulsar <- vfold_cv(pulsar_train, v = 10, repeats = 3) #esto se le hace al conjunto de entrenamiento
+```
+
+# Paso 4 : especificar la receta
+
+Las recetas le permiten especificar el papel de cada variable como respuesta o variable predictiva (usando una `formula`), y cualquier paso de preprocesamiento que desee realizar (como normalización, imputación, PCA, etc.).
+
+Por lo general la receta se suele aplicar al conjunto de datos de entrenamiento, sin embargo esto no es relevante, pues aquí aún no se está ejecutando nada de los procesos que especificamos, por lo que podemos especificar la receta usando el set de datos original `pulsares`, aunque bien lo pudimos hacer con el objeto `pulsar_train` o  hasta el objeto `pulsar_split`.
+
+Los pasos de pre procesamiento son muchos, en este caso voy a aplicar solo 3 para no hacer muy extenso esta parte, aunque podriamos aplicar transformaciones BoxCox y otras ideas que surjan en el analisis.
+
+```{r}
+pulsar_recipe <- pulsares %>%
+  recipe(Clase ~ ., data = pulsares) %>%
+  #algunos pasos de preprocesamiento
+  step_corr(all_predictors()) %>% #elimina variables con correlaciones altas con las demas
+  step_center(all_predictors(), - all_outcomes()) %>% #centra las variables (media 0), lo hace a todos los predictores menos a la respuesta
+  step_scale(all_predictors(), - all_outcomes()) # las normaliza (desviacion estandar 1), lo hace a todos los predictores menos a la respuesta
+
+pulsar_recipe
+```
+
+# Paso 5 : ejecutar el preprocesamiento
+
+Este paso no es necesario del todo, pero puede que por alguna razón queremos ver los datos preprocesados. Lo que debemos hacer para esto es:
+
+- Para el conjunto de datos de entrenamiento le aplico la receta a estos con la función `prep()`, y los obtengo con `juice()`.
+
+```{r}
+pulsar_train_preprocessed <- pulsar_recipe %>%
+  # aplico la receta a los datos de entrenamiento
+  prep(pulsar_train) %>%
+  # extraigo los datos de entrenamiento preprocesados
+  juice()
+
+pulsar_train_preprocessed
+```
+
+- Para el conjunto de datos de prueba, si quiero obtener los datos preprocesados, aplico la receta con `prep()` pero esta vez los obtengo con `bake()` (este bake se le aplica a los datos de prueba).
+
+```{r}
+pulsar_test_preprocessed <- pulsar_recipe %>%
+  # aplico la receta 
+  prep() %>%
+  # extraigo los datos de prueba preprocesados
+  bake(pulsar_test)
+
+pulsar_test_preprocessed
+```
+
+# Paso 6 : especificar el modelo
+
+Para especificar el modelo se usa el paquete `parsnip`. En este caso vamos a ejecutar dos modelos, y a cada uno de ellos le vamos a a justar un parámetro, para especificar este ajuste vamos a usar la función `tune()` y posteriormente vamos a ajustarlos utilizando la validación cruzada que habíamos creado anteriormente.
+
+Los posibles modelos que se pueden aplicar con  `parsnip`. los puede encontrar [aquí](https://tidymodels.github.io/parsnip/articles/articles/Models.html).
+
+Hay algunos componentes principales que debe proporcionar para la especificación del modelo.
+
+- El tipo de modelo: el tipo de modelo que se desea ajustar, se establece usando una función diferente dependiendo del modelo que se quiera, como `rand_forest()` para bosque aleatorio, `logistic_reg()` para regresión logística, `svm_poly()` para un modelo polinomial SVM, etc.
+
+- Los argumentos: los parámetros del modelo, se establecen usando `set_args()`.
+
+- El motor: el paquete subyacente del que viene el modelo (por ejemplo, `ranger` para la implementación del Random Forest), se especifica con `set_engine ()`.
+
+- El modo: el tipo de predicción, ya que varios paquetes pueden hacer tanto la clasificación (predicción binaria / categórica) como la regresión (predicción continua), es importante especificar esto. Se puede especificar usando `set_mode ()`.
+
+Para el presente ejemplo vamos a aplicar dos modelos. Uno de redes neuronales del paquete `nnet` y uno de maquinas de soporte vectorial (SVM) del paquete `kernlab`.
+
+```{r}
+modelo_redes <- mlp() %>%
+  # Voy a ajustar el parametro `hidden_units` con tune()
+  set_args(hidden_units = tune(), penalty = 0.01) %>%
+  # seleccionamos el paquete de donde proviene el modelo
+  set_engine("nnet") %>%
+  # Elegir la regresion continua o el modelo de clasificacion binaria
+  set_mode("classification")
+
+modelo_svm <- svm_rbf() %>%
+  # Voy a ajustar el parametro `rbf_sigma` con tune()
+  set_args(rbf_sigma = tune()) %>%
+  # seleccionamos el paquete de donde proviene el modelo
+  set_engine("kernlab") %>%
+  # Elegir la regresion continua o el modelo de clasificacion binaria
+  set_mode("classification")
+```
+
+# Paso 7 : poner todo en un flujo de trabajo
+
+Ahora estamos listos para unir el modelo y las recetas en un flujo de trabajo. Para ello vamos a iniciar un flujo de trabajo usando `workflow()` (del paquete `workflow`), luego vamos a agregar la receta y por ultimo el modelo. Como en este caso tenemos dos modelos a la misma vez vamos a necesitar dos flujos de trabajos separados, y de aqui en adelante todo lo vamos a hacer por separado para ambos modelos.
+
+```{r}
+# Modelo redes neuronales-----------------------------------------------------------------------------
+# hacer el workflow
+workflow_redes <- workflow() %>%
+  # agregar ka receta
+  add_recipe(pulsar_recipe) %>%
+  # agregar el modelo
+  add_model(modelo_redes)
+
+# Modelo SVM -----------------------------------------------------------------------------------------
+
+# hacer el workflow
+workflow_svm <- workflow() %>%
+  # agregar ka receta
+  add_recipe(pulsar_recipe) %>%
+  # agregar el modelo
+  add_model(modelo_svm)
+```
+
+# Paso 8 : ajustar los parámetros
+
+Recordemos que anteriormente creamos el objeto `vc_pulsar` para ajustar los parametros con este metodo. Pues bien aqui lo vamos a utilizar. Es importante mencionar que debemos tener instalado los paquetes de los cuales proviene el modelo, pues sino nos va a pedir que los instalemos, en este caso debemos tener instalado `nnet` y `kernlab`.
+
+Entonces  para hacer el ajuste primero definimos los valores que queremos probar del parámetro que vamos a ajustar, esto lo hacemos usando la función `expand.grid()`, seguidamente con la función `tune_grid()` lo ajustamos, especificando el flujo de trabajo, el metodo de validacion cruzada que ibamos a usar, el objeto hecho con `expand.grid()` y las metricas que queremos usar para determinar cual es el mejor parámetro, en este caso `roc_auc` y `accuracy`.
+
+Para observar los resultados de manera simplificada podemos utilizar la función `collect_metrics`.
+
+```{r}
+# Modelo redes neuronales-----------------------------------------------------------------------------
+
+# especificar los valores del parametro que queremos que se prueben
+pulsar_grid_redes <- expand.grid(hidden_units = c(3, 5, 9))
+
+
+# extraemos los resultados
+ajuste_parametro_redes <- workflow_redes %>%
+  tune_grid(resamples = vc_pulsar, # objeto de validacion cruzada
+            grid = pulsar_grid_redes, # valores del parametro que se van a probar
+            metrics = metric_set(accuracy, roc_auc) # metricas para medir el ajuste del modelo que queremos
+            )
+
+# vemos resultados
+ajuste_parametro_redes %>% 
+  collect_metrics()
+
+# Modelo SVM -----------------------------------------------------------------------------------------
+
+# especificar los valores del parametro que queremos que se prueben
+pulsar_grid_svm <- expand.grid(rbf_sigma = c(0.1, 0.15, 0.2))
+
+
+# extraemos los resultados
+ajuste_parametro_svm <- workflow_svm %>%
+  tune_grid(resamples = vc_pulsar, # objeto de validacion cruzada
+            grid = pulsar_grid_svm, # valores del parametro que se van a probar
+            metrics = metric_set(accuracy, roc_auc) # metricas para medir el ajuste del modelo que queremos
+            )
+
+# vemos resultados
+ajuste_parametro_svm %>% 
+  collect_metrics()
+```
+
+# Paso 9 : finalizar flujo de trabajo
+
+Para finalizar nuestro flujo de trabajo queremos que se escoja el mejor parámetro para ambos modelos, por lo que primero debemos determinar cuál de los valores que probamos es el que nos proporciona mejores métricas. Para ello usamos la función `select_best()`. Luego podemos agregar este parámetro al flujo de trabajo utilizando la función `finalize_workflow()`.
+
+```{r}
+# Modelo redes neuronales-----------------------------------------------------------------------------
+
+# obtenemos el mejor parametro basado en la metrica accuracy
+param_final_redes <- ajuste_parametro_redes %>%
+  select_best(metric = "accuracy")
+
+param_final_redes
+
+# agregamos el parametro al flujo de trabajo y lo finalizamos
+workflow_redes <- workflow_redes %>%
+  finalize_workflow(param_final_redes)
+
+# Modelo SVM -----------------------------------------------------------------------------------------
+
+# obtenemos el mejor parametro basado en la metrica accuracy
+param_final_svm <- ajuste_parametro_svm %>%
+  select_best(metric = "accuracy")
+
+param_final_svm
+
+# agregamos el parametro al flujo de trabajo y lo finalizamos
+workflow_svm <- workflow_svm %>%
+  finalize_workflow(param_final_svm)
+```
+
+# Paso 10 : ajustar el modelo final
+
+Ahora bien, ya que tenemos todo dentro de nuestro flujo de trabajo, podemos ajustar el modelo basandonos en ese flujo de trabajo, para ello aplicaremos la funcion `last_fit()` a nuestro flujo de trabajo y especificaremos el objeto `pulsar_split`. Esto entrenará automáticamente el modelo especificado por el flujo de trabajo utilizando los datos de entrenamiento y producirá evaluaciones basadas en los datos de prueba.
+
+```{r}
+# Modelo redes neuronales-----------------------------------------------------------------------------
+redes_fit <- workflow_redes %>%
+  # ajuste en el conjunto de entrenamiento y evalue en el de prueba
+  last_fit(pulsar_split)
+
+# Modelo SVM -----------------------------------------------------------------------------------------
+
+svm_fit <- workflow_svm %>%
+  # ajuste en el conjunto de entrenamiento y evalue en el de prueba
+  last_fit(pulsar_split)
+```
+
+El objeto de ajuste que se crea es un objeto similar a un marco de datos, específicamente, un tibble con columnas de lista. Esta es una característica muy buena de `tidymodels` (y es lo que hace que funcione tan bien con el `tidyverse`) ya que puede hacer todas sus operaciones `tidyverse` en el objeto de ajuste del modelo. Utilizando el paquete `purrr` podemos hacer un mejor manejo de este tipo de variables anidadas, aunque si no está familiarizado con el paquete hay otras opciones que proporciona `tidymodels`.
+
+# Paso 11 : obtener resultados de la evaluación
+
+Podemos obtener los resultados de la evaluación de los datos de prueba con la función `collect_metrics()` tal y como lo hicimos cuando ajustamos los parámetros de ambos modelos. 
+
+```{r}
+# Modelo redes neuronales-----------------------------------------------------------------------------
+test_redes <- redes_fit %>% 
+  collect_metrics()
+
+# Modelo SVM -----------------------------------------------------------------------------------------
+
+test_svm <- svm_fit %>% 
+  collect_metrics()
+```
+
+Esto nos da las métricas para ambos modelos y con ello podemos establecer una comparativa para ver cuál nos proporciona mejor capacidad predictiva basado en las métricas.
+
+```{r}
+test_redes
+test_svm
+```
+
+Como observamos ambos modelos producen valores cercanos a 1, lo que para este caso nos da una señal de que ambos modelos tienen alta capacidad predictiva.
+
+Si queremos obtener las predicciones podemos usar la función `pull()` de el paquete `dplyr`, estas predicciones las sacamos de la columna `.predictions` del objeto de ajuste del modelo.
+
+```{r}
+# Modelo redes neuronales-----------------------------------------------------------------------------
+redes_test_predictions <- redes_fit %>% 
+  pull(.predictions)
+
+redes_test_predictions
+
+# Modelo SVM -----------------------------------------------------------------------------------------
+
+svm_test_predictions <- svm_fit %>% 
+  pull(.predictions)
+
+svm_test_predictions
+```
+
+Este fue un breve ejemplo y que quizás deben incluirse muchos más pasos dentro del procedimiento, como por ejemplo una exploración previa de los datos, establecer pasos de preprocesamiento más rigurosos, hacer algunos análisis gráficos para verificar el comportamiento de las variables en relación a la variable respuesta, entre otras cosas.
+
+Puede encontrar la lista de funciones y el paquete al que pertenece cada una de las funciones [aquí](https://tidymodels.github.io/tidymodels/articles/extras/Functions.html).
