@@ -1,0 +1,213 @@
+---
+title: "Presentation Ninja"
+subtitle: "⚔<br/>con xaringan"
+author: "Allan Martínez M"
+institute: "RStudio, PBC"
+date: "2020/04/29"
+output:
+  xaringan::moon_reader:
+    #chakra: libs/remark-latest.min.js
+    lib_dir: libs
+    nature:
+      countdown: 60000
+      #autoplay: 30000
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    css: [
+      "https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.7.0/animate.min.css",
+      addons/custom.css]
+    #css: [default, metropolis, metropolis-fonts]
+---
+class: center, middle, animated, slideInRight
+
+Se necesita comprender más sobre 2 cosas.
+* La biblioteca remark.js;
+* .red[El paquete xaringan];
+
+
+Básicamente, xaringan inyectó el chakra de R Markdown (menos Pandoc) en remark.js. Las diapositivas se representan por remark.js en el navegador web, y la fuente de Markdown que necesita por remark.js es generada a partir de R Markdown (knitr).
+
+
+---
+class: inverse, center, middle, animated, bounceInDown
+
+# Slide 1
+
+* .blue[En general las reglas que se aplican para R Markdown aplican para xaringan.]
+* Recordando, "#" crea un título y entre más "#" más pequeño el título.
+    + Las páginas o "slides" son separadas con tres lineas "---"
+Si lo que se quiere es que con un click vayan apareciendo elementos.
+    + Se puede hacer agregando dos lineas "--"
+    + Para agregar espacios se utiliza el html tag "< b r >"
+
+---
+
+# Slide 2
+
+Este es el slide 2
+
+A continuación una ecuación, elaborada con LaTex:
+
+$$S (ω)=1.466\, H_s^2 \,  \frac{ω_0^5}{ω^6 }  \, e^[-3^ { ω/(ω_0  )]^2}$$
+
+---
+class: inverse, center, middle
+
+# Slide 3
+
+Este es el slide 3
+Como se puede notar el color se invirtió, los elementos se centraron tanto horizontal como vertical mente
+Esto se realiza con poniento el siguiente comando al inicio del slide, es decir, despues de las 3 líneas.
+* class: inverse, center, middle
+
+--
+
+Esto aparecerá con un click
+
+--
+
+<br>
+<br>
+
+Esto aparecerá con un click pero con un poco de más distancia.
+
+---
+class: inverse, center, middle
+
+![](https://acegif.com/wp-content/uploads/funny-dog-85.gif)
+
+
+---
+
+También se puede cambiar el tema de la presentación simplemene agregando el siguiente códido a continuación:
+* output:
+*   xaringan::moon_reader:
+*     css: [metropolis]
+
+---
+
+.center[![description of the image](img/foo.jpg)]
+<br>
+<br>
+<br>
+.left-column[![description of the image](img/foo.jpg)]
+<br>
+<br>
+<br>
+.right-column[![description of the image](img/foo.jpg)]
+
+
+---
+
+
+.pull-left[
+
+- One bullet.
+
+- Another bullet.
+
+]
+
+.pull-right[
+![description of the image](img/foo.jpg)
+]
+
+---
+
+The holy passion of Friendship is of so sweet and steady
+and loyal and enduring a nature that it will last through
+a whole lifetime...
+
+Se pueden agregar notas al escribir tres signos de preguntas seguidos y para poder accesar a estas bastará con teclear una vez la "p".
+
+Es importante mencionar que cuando se conecte a un proyector debe asegurarse de no duplicar las dos pantallas. En su lugar, separe las 2 pantallas para poder arrastrar la ventana con la vista normal de las diapositivas a la segunda pantalla
+
+???
+
+_if not asked to lend money_.
+
+--- Mark Twain
+
+
+---
+
+```{r tidy=FALSE}
+if (TRUE) {
+{{ message("Very important!") }}
+}
+```
+
+---
+
+```{r fig.height=5, fig.width=5}
+library(ggplot2)
+ggplot(mtcars) +
+  aes(mpg, disp) +
+  geom_point() +   #<<
+  geom_smooth()    #<<
+```
+
+
+---
+
+```{r}
+
+knitr::kable(head(iris), format = "html"
+)
+
+```
+
+
+---
+
+output:
+  xaringan::moon_reader:
+    chakra: libs/remark-latest.min.js
+    
+Utilizar chakra para tener una versión offline de la ppt.
+
+
+---
+
+```{r}
+DT::datatable(
+  head(iris, 10),
+  fillContainer = FALSE, options = list(pageLength = 8)
+)
+```
+
+---
+```{r, highlight.output=c(1, 3)}
+head(iris)
+```
+
+
+---
+
+```{r}
+
+library(leaflet)
+leaflet() %>% 
+  addTiles() %>% 
+  setView(-93,42,zoom=8)
+
+```
+
+---
+
+```{css, echo=F}
+.large { font-size: 130% }
+.red { color: red; }
+.blue { color: blue; }
+```
+
+.large[Ostia]
+.red[ o s ti a] algo
+.large[.red[ostia]]
+>OSTIA
+
+```{r}
+names(xaringan:::list_css())
+```
+
