@@ -1,0 +1,133 @@
+---
+title: "Introducción a janitor"
+author: "Patrick Santamaría"
+date: "5/5/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(janitor)
+library(tidyverse)
+library(readxl)
+library(gt)
+```
+
+`janitor` es un paquete creado con funciones simples para examinar y limpiar datos sucios. Las principales funciones que permite este paquete son:
+
+- Dar formato correcto a los nombres de las columnas de un `data.frame`
+- Crear y dar formato a tablas de frecuencia de una, dos o tres variables.
+- Aislar registros parcialmente duplicados.
+
+Si bien `janitor` no pertenece a `tidyverse` si está orientado a utilizarse con él, por lo que funciona muy bien con los `%>%`. A su vez está optimizado para trabajar en la limpieza de datos de datos que se incluye con los paquetes `readxl` y `readr`.
+
+Para empezar con algunos ejemplos sobre el uso de este paquete vamos a poner como ejemplo el `dirty_data.xlsx`. En general estamos acostumbrados a recibir un excel donde tenemos columnas que se llaman igual. El paquete `readxl` hace unicas las columnas, pero lo hace con una serie de puntos que no siempre nos gusta. Con `janitor` podemos usar la función `make_clean_names` para reparar esto, y podemos especificarla en uno de los argumentos de la función `read_excel()`.
+
+```{r}
+data <- read_excel("data/dirty_data.xlsx")
+
+glimpse(data)
+```
+
+Con `janitor` podemos usar la función `make_clean_names` para reparar esto, y podemos especificarla en uno de los argumentos de la función `read_excel()`.
+
+```{r}
+data <- read_excel("data/dirty_data.xlsx", .name_repair = make_clean_names) 
+glimpse(data)
+```
+
+A su vez como podemos ver `dirty_data.xlsx` trae una fila vacia y una columna vacía. Con la función `remove_empty()` podemos eliminar filas y columnas vacías, especificando que queremos eliminar.
+
+```{r}
+data <- data %>% 
+  remove_empty(c("cols", "rows"))
+
+data
+```
+
+La función `get_dupes` nos sirve para identificar duplicados en cierta columna, o en varias utilizando las funciones de que solemos utilizar en `dplyr` como `start_with` o `contains`. 
+
+```{r}
+data %>%
+  get_dupes(contains("name"))# toma duplicados de las columnas que contienen la palabra name
+```
+
+A su vez `janitor` nos permite hacer tablas cruzadas de manera rápida con la función `tabyl`. Si es para dos variables no devuelve una tabla cruzada común y si es para tres variables nos devuelve una lista (de los niveles de la tercer variables) de tablas cruzadas de las dos primeras dos varaibles especificadas
+
+```{r}
+# tabla cruzada de dos variables
+data %>%
+  tabyl(subject, employee_status)
+
+#tabla cruzada de tres variables
+data %>%
+  tabyl(subject, employee_status, certification)
+```
+
+Hay funciones útiles para manejar estas tablas cruzadas, y en general a mi me ha servido mucho no solo para tablas cruzadas, sino para cualquier tipo de data.frame. Se trata de las funciones `adorn`. Algunas de ellas son:
+
+- `adorn_totals`, sirve para especificar los totales de fila o columna, podemos especificar que nombre queremos darle a esta nueva variable, en este caso yo le voy a poner `Total`.
+
+```{r}
+tabla <- data %>%
+  tabyl(subject, employee_status)
+
+tabla %>% 
+  adorn_totals("row", name = "Total") %>% # agrega totales por fila
+  adorn_totals("col", name = "Total") #agrega totales por columna
+```
+
+- `adorn_percentages` sirve para convertir frecuencias absolutas a proporciones, ya sea por fila o por columna. Si queremos sacar el porcentaje de toda la tabla en lugar de `row` o `col` utilizamos `all`
+
+```{r}
+tabla %>% 
+ adorn_percentages("row")
+
+tabla %>% 
+ adorn_percentages("all")
+```
+
+- `adorn_ns` nos sirve para presentar la frecuencia absoluta en cada celda, en caso se que quisieramos mostrarla tambien.
+
+```{r}
+tabla %>% 
+ adorn_percentages("all") %>% 
+  adorn_ns()
+```
+
+- `adorn_title` nos permite poner el título de cada variable cruzada arriba o bien combinado en la celda superior izquierda. También podemos editar estos nombres para que se vean mejor con los parametros `col_name` o `row_name`.
+
+```{r}
+tabla %>% 
+  adorn_title("top") # lo pone arriba
+
+tabla %>% 
+  adorn_title("combined") #lo pone en la esquina superior izquierda
+
+tabla %>% 
+  adorn_title("top", col_name = "Employee status", row_name = "Subject") #cambio los nombres por unos que se ven mejor
+```
+
+- `adorn_pct_formatting` le da formato a los valores cuando son porcentajes.
+
+```{r}
+tabla %>% 
+  adorn_percentages("all") %>% 
+  adorn_pct_formatting() 
+```
+
+- `adorn_rounding` sirve para repondear al número de decimales que especificamos todos los valores de una tabla.
+
+```{r}
+tabla %>% 
+  adorn_percentages("all") %>% 
+  adorn_rounding(1) # redonde a un decimal
+
+tabla %>% 
+  adorn_percentages("all") %>% 
+  adorn_rounding(3) # redondea a 3 decimales
+```
+
+En general este es un paquete que tiene pocas funciones, y fue creado para facilitarle la vida a los conserjes, o mejor dicho, a personas que no son tan experimentadas, pero a su vez le facilita la vida a personas que tenemos un poco más de experiencia y que a veces nos complicamos con algo tan simple como obtener un total de una tabla (solo por poner un ejemplo).
