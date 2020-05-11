@@ -4,18 +4,26 @@ En este proyecto vamos a realizar la revisión de algunos de los paquetes de R q
 
 Algunos de los paquetes que vamos a estudiar por semana están definidos en el siguiente cuadro:
 
-| Fecha presentación | Paquete o tema | Persona asignada |
-|:------------------:|:--------------:|:----------------:|
-| 19/4/2020          |   forcats      | Allan            |
-| 19/4/2020          |   purrr        | Patrick          |
-| 26/4/2020          |   tidyr        | Allan            |
-| 26/4/2020          |   stringr      | Patrick          |
-| 3/5/2020           |   xaringan     | Allan            |
-| 3/5/2020           |   tidymodel    | Patrick          |
-| 10/5/2020          |   officer      | Allan            |
-| 10/5/2020          |   janitor      | Patrick          |
-| 17/5/2020          |   fable        | Allan            |
-| 17/5/2020          |   gt           | Patrick          |
+| Fecha presentación | Paquete o tema  | Persona asignada |
+|:------------------:|:---------------:|:----------------:|
+| 19/4/2020          |   forcats       | Allan            |
+| 19/4/2020          |   purrr         | Patrick          |
+| 26/4/2020          |   tidyr         | Allan            |
+| 26/4/2020          |   stringr       | Patrick          |
+| 3/5/2020           |   xaringan      | Allan            |
+| 3/5/2020           |   tidymodel     | Patrick          |
+| 10/5/2020          |   officer       | Allan            |
+| 10/5/2020          |   janitor       | Patrick          |
+| 17/5/2020          |   fable         | Allan            |
+| 17/5/2020          |   gt            | Patrick          |
+| 24/5/2020          |   bookdown      | Allan            |
+| 24/5/2020          |   data.table    | Patrick          |
+| 31/5/2020          |   dygraphs      | Allan            |
+| 31/5/2020          |   DiagrammeR    | Patrick          |
+| 7/6/2020           |   ggplot2       | Allan            |
+| 7/6/2020           |   broom(cluster)| Patrick          |
+| 14/6/2020          |   glue          | Allan            |
+| 14/6/2020          |   googlesheets4 | Patrick          |
 
 Las manera en que se va a llevar a cabo la dinámica es la siguiente:
 
