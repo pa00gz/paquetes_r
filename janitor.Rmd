@@ -2,8 +2,10 @@
 title: "Introducción a janitor"
 author: "Patrick Santamaría"
 date: "5/5/2020"
-output: html_document
-editor_options: 
+output:
+  word_document: default
+  html_document: default
+editor_options:
   chunk_output_type: console
 ---
 
@@ -86,6 +88,9 @@ tabla %>%
  adorn_percentages("row")
 
 tabla %>% 
+ adorn_percentages("col")
+
+tabla %>% 
  adorn_percentages("all")
 ```
 
@@ -115,7 +120,7 @@ tabla %>%
 ```{r}
 tabla %>% 
   adorn_percentages("all") %>% 
-  adorn_pct_formatting() 
+  adorn_pct_formatting(2) 
 ```
 
 - `adorn_rounding` sirve para repondear al número de decimales que especificamos todos los valores de una tabla.
