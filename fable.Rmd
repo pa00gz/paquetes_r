@@ -1,0 +1,301 @@
+---
+title: "fable"
+author: "Allan Martínez"
+date: "14 de mayo de 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## fable
+Esta librería proporciona una colección de modelos de predicción, univariados y multivariados de uso común, que incluyen el modelo de suavización exponencial (ETS) y ARIMA.
+Estos modelos funcionan dentro del marco 'fable' propocionado por el paquete 'fabletools', que proporciona las para evaluar, visualizar y combinar modelos en un flujo de trabajo consistente con el tidyverse.
+
+```{r}
+library(fable)
+library(tsibble)
+library(tsibbledata)
+library(lubridate)
+library(dplyr)
+library(tidyverse)
+library(feasts)
+aus_retail %>%
+  filter(
+    State %in% c("New South Wales", "Victoria"),
+    Industry == "Department stores"
+  ) %>% 
+  model(
+    ets = ETS(box_cox(Turnover, 0.3)),
+    arima = ARIMA(log(Turnover)),
+    snaive = SNAIVE(Turnover)
+  ) %>%
+  forecast(h = "2 years") %>% 
+  autoplot(filter(aus_retail, year(Month) > 2010), level = NULL)
+```
+
+Cargamos la base tourism
+
+```{r}
+tourism
+```
+
+Hay 304 combinaciones de Región, estado y proposito, cada una definida en una serie de tiempo con 80 observaciones.
+Para simplificar los resultados, se abreviaran los nombres de los estados
+
+```{r}
+tourism <- tourism %>%
+  mutate(
+    State = recode(State,
+      "Australian Capital Territory" = "ACT",
+      "New South Wales" = "NSW",
+      "Northern Territory" = "NT",
+      "Queensland" = "QLD",
+      "South Australia" = "SA",
+      "Tasmania" = "TAS",
+      "Victoria" = "VIC",
+      "Western Australia" = "WA"
+    )
+  )
+```
+
+#Pronosticar una seria de tiempo
+Comenzarémos demostrando el uso de una sola serie de tiempo, extraeremos los datos del turimos en días feriados en snowy mountains, estado NSW
+
+```{r}
+snowy <- tourism %>%
+  filter(
+    Region == "Snowy Mountains",
+    Purpose == "Holiday"
+  )
+snowy
+```
+
+
+```{r}
+snowy %>% autoplot(Trips)
+```
+
+Para este conjunto de datos, un método de pronóstico de referencia puede ser el "naive method", donde los pronósticos son iguales al último valor observado del mismo trimestre. Los modelos alternativos para esta serie son modelos ETS y ARIMA. Todos estos pueden incluirse en una sola llamada a la función model () como esta.
+
+**SNAIVE**: devuelve el pronósitoc e intervalos de predicción de un modelo ARIMA(0,0,0)(0,1,0)m, donde m es el periodo estacional
+
+lag: El retraso especial se utiliza para especificar el orden de retraso para el proceso de paseo aleatorio. Si no se incluye, este especial se incluirá automáticamente.
+
+**ETS**: Suavizamiento exponencial (de estado espacio)
+ETS(formula, opt_crit = c("lik", "amse", "mse", "sigma", "mae"),
+nmse = 3, bounds = c("both", "usual", "admissible"), ic = c("aicc", "aic", "bic"), restrict = TRUE, ...)
+
+**ARIMA**: ARIMA(formula, ic = c("aicc", "aic", "bic"), stepwise = TRUE, greedy = TRUE, approximation = NULL, order_constraint = p + q + P + Q <= 6, unitroot_spec = unitroot_options(), ...)
+
+
+```{r}
+
+as_tsibble(USAccDeaths) %>%
+model(ets = ETS(log(value) ~ season("A"))) %>%
+components()
+
+USAccDeaths %>%
+as_tsibble() %>%
+model(arima = ARIMA(log(value) ~ pdq(0, 1, 1) + PDQ(0, 1, 1))) %>%
+fitted()
+
+tsibbledata::global_economy %>%
+filter(Country == "Australia") %>%
+model(ARIMA(log(GDP) ~ Population))
+
+fit <- snowy %>%
+  model(
+    snaive = SNAIVE(Trips ~ lag("year")),
+    ets = ETS(Trips),
+    arima = ARIMA(Trips)
+  )
+fit
+
+fit %>%  tidy() #fabletools
+
+```
+
+El objeto devuelve se denomina "mable" o "model table", donde cada celda corresponde a un modelo ajustado, porque, tenemos solo modelos ajustados a una serie de tiempo.
+Para pronósticar todos los modelos, pasamos el objeto a la función *forecast*
+
+```{r}
+fc <- fit %>%
+  forecast(h = 12)
+fc
+```
+
+El objeto que devuelve es un "fable" o tabla de predicción con las siguientes características 
+- columna .model se convierte en una llave adicional
+- columna .distribution contiene la distribución de probabilidad estimada de la variable respuesta en los siguientes periodos
+- columna Trips contiene los puntos predichos igual a la media de la probabiilidad de distribución
+
+La función *autoplot()* produce un plot de toda la predicción, por defecto level=c(80,95) son los intervalos que se muestran. Para evitar desorden se pondrá level = NULL
+
+```{r}
+library(ggplot2)
+fc %>%
+  autoplot(snowy, level = NULL) +
+  ggtitle("Forecasts for Snowy Mountains holidays") +
+  xlab("Year") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+```
+
+La función *hilo()* se puede utilizar para calcular los intervalos de confianza
+
+```{r}
+ic <- hilo(fc, level = 95)
+ic
+```
+
+##Predicción para muchas series
+
+Ahora utilizaremos la base completa de tourism
+
+```{r}
+fit <- tourism %>%
+  model(
+    snaive = SNAIVE(Trips ~ lag("year")),
+    ets = ETS(Trips),
+    arima = ARIMA(Trips)
+  )
+fit
+```
+
+Ahora el "mable" incluye todos los modelos para cada combinación de "keys"
+
+Podemos extraer la información específica acerca de un modelo específico usando "filter", "select" y "report"
+
+```{r}
+fit %>%
+  filter(Region == "Snowy Mountains", Purpose == "Holiday") %>%
+  select(arima) %>%
+  report()
+```
+
+Cuando utilizamos la función forecast(), este realiza el calculo para cada modelo y cada combinación
+
+```{r}
+fc <- fit %>%
+  forecast(h = "3 years")
+fc
+```
+
+La función forecast() puede interpretar muchas especificaciones de tiempo diferentes. Para datos trimestrales, h = "3 años" es equivalente a establecer h = 12.
+
+También se pueden generar gráficos de pronósticos individuales, aunque el filtrado es útil para evitar trazar demasiadas series a la vez.
+
+```{r}
+fc %>%
+  filter(Region == "Snowy Mountains") %>%
+  autoplot(tourism, level = NULL) +
+  xlab("Year") + ylab("Overnight trips (thousands)")
+```
+
+#Precisión de las predicciones
+
+Para comparar la precisión del pronóstico de estos modelos, crearemos un conjunto de datos de entrenamiento que contenga todos los datos hasta 2014. Luego pronosticaremos los años restantes en el conjunto de datos y compararemos los resultados con los valores reales.
+
+```{r}
+train <- tourism %>%
+  filter(year(Quarter) <= 2014)
+fit <- train %>%
+  model(
+    ets = ETS(Trips),
+    arima = ARIMA(Trips),
+    snaive = SNAIVE(Trips)
+  ) %>%
+  mutate(mixed = (ets + arima + snaive) / 3)
+fit
+```
+
+Aquí hemos introducido un pronóstico de conjunto (mixed) que es un promedio simple de los tres modelos ajustados. Tenga en cuenta que el forecast () también producirá pronósticos de distribución del conjunto, teniendo en cuenta las correlaciones entre los errores de pronóstico de los modelos de componentes.
+
+```{r}
+fc <- fit %>% forecast(h = "3 years")
+```
+
+```{r}
+fc %>%
+  filter(Region == "Snowy Mountains") %>%
+  autoplot(tourism, level = NULL)
+```
+
+Ahora para ver la precisión, se usa la función accuracy(). Por defecto, calcula las medidas de precisión como MAE, RMSE, MAPE y MASE
+
+```{r}
+accuracy(fc, tourism)
+```
+
+Pero debido a que hemos generado pronósticos de distribución, también es interesante observar la precisión usando CRPS (Puntuaciones de probabilidad de rango continuo) y Puntuaciones de Winkler (para intervalos de predicción del 95%).
+
+```{r}
+fc_accuracy <- accuracy(fc, tourism,
+  measures = list(
+    point_accuracy_measures,
+    interval_accuracy_measures,
+    distribution_accuracy_measures
+  )
+)
+```
+
+```{r}
+fc_accuracy %>%
+  group_by(.model) %>%
+  summarise(
+    RMSE = mean(RMSE),
+    MAE = mean(MAE),
+    MASE = mean(MASE),
+    Winkler = mean(winkler),
+    CRPS = mean(CRPS)
+  ) %>%
+  arrange(RMSE)
+```
+
+En este caso el modelo mixto tiene las mejores medidas de predicción
+
+Fuente: https://robjhyndman.com/hyndsight/fable/
+
+#EXTRA: Redes neuronales para series de tiempo
+NNETAR(formula, n_nodes = NULL, n_networks = 20, scale_inputs = TRUE, ...)
+n_nodes: numero de nodos, por defecto es el mitad de los input
+n_networks; número de redes para ajustar con diferentes pesos aleatorios,Estos se promedian cuando se producen pronósticos.
+...Otros argumentos pasaron a \ link [nnet] {nnet}.
+
+```{r}
+as_tsibble(airmiles) %>%
+model(nn = NNETAR(box_cox(value, 0.15)))
+
+```
+
+
+#Descomposición del modelo (‘fabletools’)
+
+```{r}
+library(fable)
+
+vic_food <- tsibbledata::aus_retail %>%
+filter(State == "Victoria", Industry == "Food retailing")
+# Identify an appropriate decomposition
+vic_food %>%
+model(STL(log(Turnover) ~ season(window = Inf))) %>%
+components() %>%
+autoplot()
+# Use an ARIMA model to seasonally adjusted data, and SNAIVE to season_year
+# Any model can be used, and seasonal components will default to use SNAIVE.
+my_dcmp_spec <- decomposition_model(
+STL(log(Turnover) ~ season(window = Inf)),
+ETS(season_adjust ~ season("N")), SNAIVE(season_year)
+)
+vic_food %>%
+model(my_dcmp_spec) %>%
+forecast(h="5 years") %>%
+autoplot(vic_food)
+
+
+
+
+```
+
