@@ -1,0 +1,490 @@
+---
+title: "Introducción a gt"
+author: "Patrick Santamaría"
+date: "12/5/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+Con el paquete gt podemos crear tablas con un aspecto agradable y con un formato facilmente editable. El paquete es amigable para usar con tidyverse, por lo que de gran ayuda para utilizarlo en nuestro día a día, siempre que trabajemos con datos tidy.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gt)
+library(carData)
+```
+
+Para ejemplificar el uso de este paquete vamos a utilizar el data set `Arrests` que está contenido en el paquete `carData`. Y porque no empezamos probando el comando más simple, `gt` para ejemplificar las primeras 5 filas y ver la estructura de los datos.
+
+```{r}
+datos <- Arrests %>% 
+  set_names("detenido", "color", "año", "edad", "sexo", "empleado", "ciudadano", "arrestos_previos")
+
+datos %>% 
+  head(5) %>% 
+  gt()
+```
+
+# Agregar caracteristicas a la tabla
+
+Hay varias cosas que podemos agregarle a una tabla, la siguiente imagen muestra algunas de las cosas que podemos agregar:
+
+![](img/gt.png)
+
+## Título y subtítulo
+
+Para agregar estas dos partes de la tabla anterior usamos la función `tab_header()`.
+
+```{r}
+datos %>% 
+  group_by(sexo) %>% 
+  summarise(total_arrestos = sum(arrestos_previos, na.rm = TRUE)) %>% 
+  gt() %>% 
+  tab_header(title = "Total de arrestos por marihuana según sexo",
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)")
+```
+
+Si agrupamos por otra variable, dado que `gt` entiende lenguaje `tidyverse` el solo nos configura una tabla agrupada. Agrupemos por ciudadano o no ciudadano para verlo más claro.
+
+```{r}
+datos %>% 
+  group_by(sexo, ciudadano) %>% 
+  summarise(total_arrestos = sum(arrestos_previos, na.rm = TRUE)) %>% 
+  gt() %>% 
+  tab_header(title = "Total de arrestos por marihuana según ciudadanía y sexo",
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)") 
+  
+```
+
+Si queremos reordenar la agrupación manualmente en la tabla lo podemos hacer con la función `row_group_order()` pero debemos indicar cual es la variable grupo en la función `gt` con el parámetro `groupname_col`.
+
+```{r}
+datos %>% 
+  group_by(sexo, ciudadano) %>% 
+  summarise(total_arrestos = sum(arrestos_previos, na.rm = TRUE)) %>% 
+  gt(groupname_col = "sexo") %>% 
+  tab_header(title = "Total de arrestos por marihuana según ciudadanía y sexo",
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)") %>%
+    row_group_order(
+      groups = c("Male", "Female")
+    )
+```
+
+
+Si quisieramos poner el título en negrita la función `md()` nos permite editar el texto allí adentro como si estuviermos usando lenguaje de markdown.
+
+```{r}
+datos %>% 
+  group_by(sexo, ciudadano) %>% 
+  summarise(total_arrestos = sum(arrestos_previos, na.rm = TRUE)) %>% 
+  gt() %>% 
+  tab_header(title = md("**Total de arrestos por marihuana según ciudadanía y sexo**"),
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)")
+```
+
+## Fuente y notas al pie
+
+Como estadísticos muchas veces estamos obligados a incluir la fuente en cualquier gráfico o tabla que hacemos. No todos los paquetes nos permiten agregar esto de manera sencilla, con `gt` basta usar la función `tab_source_note()` para incluir estas referencias de la tabla con el parámetro `source_note`, incluso podemos incluir más de una.
+
+```{r}
+datos %>% 
+  group_by(sexo, ciudadano) %>% 
+  summarise(total_arrestos = sum(arrestos_previos, na.rm = TRUE)) %>% 
+  gt() %>% 
+  tab_header(title = md("**Total de arrestos por marihuana según ciudadanía y sexo**"),
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)") %>% 
+  tab_source_note(source_note = "Fuente: Comunicación personal con Michael Friendly, York University.") %>% 
+  tab_source_note(source_note = "Documentación: https://www.rdocumentation.org/packages/carData/versions/3.0-3/topics/Arrests")
+```
+
+Si queremos inclur una nota al pie, para hacer referencia o comentar algún aspecto particular de la tabla usamos el parámetro `footnote` de la función `tab_footnote()` e indicamos la locación de la celda a la que queremos hacer referencia con esa nota al pie con el parámetro `locations` con la función `cells_body()`.
+
+```{r}
+datos %>% 
+  group_by(sexo, ciudadano) %>% 
+  summarise(total_arrestos = sum(arrestos_previos, na.rm = TRUE)) %>% 
+  gt() %>% 
+  tab_header(title = md("**Total de arrestos por marihuana según ciudadanía y sexo**"),
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)") %>% 
+  tab_source_note(source_note = "Fuente: Comunicación personal con Michael Friendly, York University.") %>% 
+  tab_footnote(footnote = "50% ya se encuentra en la carcel",
+               locations = cells_body(
+                 columns = vars(total_arrestos),
+                 rows = c(1, 2))
+               )
+```
+
+## Grupos
+
+### Grupos en filas
+
+También podemos agregar grupos de manera manual si así lo deseamos, o si es algo que no tenemos implícito en los datos. Con la función `tab_row_group()`. Para ejemplificarlo vamos a usar la misma tabla anterior pero quitando la variable `sexo` y agrupandolo manualmente.
+
+```{r}
+datos %>% 
+  group_by(sexo, ciudadano) %>% 
+  summarise(total_arrestos = sum(arrestos_previos, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  select(-sexo) %>% 
+  gt() %>% 
+  tab_header(title = md("**Total de arrestos por marihuana según ciudadanía y sexo**"),
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)") %>% 
+  tab_source_note(source_note = "Fuente: Comunicación personal con Michael Friendly, York University.") %>% 
+  tab_footnote(footnote = "50% ya se encuentra en la carcel",
+               locations = cells_body(
+                 columns = vars(total_arrestos),
+                 rows = c(1, 2))
+               ) %>% 
+  tab_row_group(group = "Mujeres",
+                rows = c(1, 2)) %>% 
+  tab_row_group(group = "Hombres",
+                rows = c(3, 4))
+```
+
+### Grupos en columnas
+
+Si queremos hacer grupos por columnas podemos hacerlo con la función `tab_spanner()` y especificamos las columnas que queremos agrupar bajo ese grupo con la función `vars()`.
+
+```{r}
+datos %>% 
+  select(sexo, edad, color, empleado, ciudadano) %>% 
+  head(10) %>% 
+  gt() %>% 
+  tab_spanner(label = "Caracteristicas fisicas",
+              columns = vars(sexo, edad, color)) %>% 
+  tab_spanner(label = "Caracteristicas demograficas",
+              columns = vars(empleado, ciudadano)) %>% 
+  tab_header(title = md("**Caracteristicas de arrestados por marihuana**"),
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)")
+  
+```
+
+## Estilo de las celdas
+
+Con la función `tab_style()` podemos modificar el estilo de las celdas usando las funciones auxiliares de `cell_fill()`, `cell_text()`, `cell_bordes()`. Veamos un ejemplo con la tabla anterior:
+
+```{r}
+datos %>% 
+  select(sexo, edad, color, empleado, ciudadano) %>% 
+  head(10) %>% 
+  gt() %>% 
+  tab_spanner(label = "Caracteristicas fisicas",
+              columns = vars(sexo, edad, color)) %>% 
+  tab_spanner(label = "Caracteristicas demograficas",
+              columns = vars(empleado, ciudadano)) %>% 
+  tab_header(title = md("**Caracteristicas de arrestados por marihuana**"),
+             subtitle = "(Incluyendo ciudadanos y no ciudadanos)") %>% 
+  tab_style(
+    style = list(
+      cell_fill(color = "red"),
+      cell_text(weight = "bold",
+                style = "italic")
+      ),
+    locations = cells_body(
+      columns = vars(color),
+      rows = edad <= 20)
+  )
+```
+
+Lo bueno de este paquete es que nos permite agregar condiciones para hacer lo que deseamos con las variables en este caso pinto de rojo, hago negrita e italica el color de piel de las personas menores a 20 años que han sido arrestados por temas de marihuana.
+
+## Opciones de output de la tabla
+
+Frecuentemente nos preocupamos por hacer más grande la letra de una tabla, quitar los bordes, hacerlos más gruesos entre otras cosas. Para ello con la función `tab_options()` de `gt` podemos cambiar varias de estas inquietudes que normalmente tenemos. En esta demo no voy a entrar en detalle pero a continuación listo todas las opciones de output de la tabla que podemos modificar. Si quiere más información puede usar `?tab_options()` para ver que valores son los que acepta cada opción.
+
+```
+  container.width = NULL,
+  container.height = NULL,
+  container.overflow.x = NULL,
+  container.overflow.y = NULL,
+  table.width = NULL,
+  table.align = NULL,
+  table.margin.left = NULL,
+  table.margin.right = NULL,
+  table.background.color = NULL,
+  table.font.color = NULL,
+  table.font.color.light = NULL,
+  table.font.size = NULL,
+  table.border.top.style = NULL,
+  table.border.top.width = NULL,
+  table.border.top.color = NULL,
+  table.border.right.style = NULL,
+  table.border.right.width = NULL,
+  table.border.right.color = NULL,
+  table.border.bottom.style = NULL,
+  table.border.bottom.width = NULL,
+  table.border.bottom.color = NULL,
+  table.border.left.style = NULL,
+  table.border.left.width = NULL,
+  table.border.left.color = NULL,
+  heading.background.color = NULL,
+  heading.align = NULL,
+  heading.title.font.size = NULL,
+  heading.title.font.weight = NULL,
+  heading.subtitle.font.size = NULL,
+  heading.subtitle.font.weight = NULL,
+  heading.border.bottom.style = NULL,
+  heading.border.bottom.width = NULL,
+  heading.border.bottom.color = NULL,
+  heading.border.lr.style = NULL,
+  heading.border.lr.width = NULL,
+  heading.border.lr.color = NULL,
+  column_labels.background.color = NULL,
+  column_labels.font.size = NULL,
+  column_labels.font.weight = NULL,
+  column_labels.text_transform = NULL,
+  column_labels.vlines.style = NULL,
+  column_labels.vlines.width = NULL,
+  column_labels.vlines.color = NULL,
+  column_labels.border.top.style = NULL,
+  column_labels.border.top.width = NULL,
+  column_labels.border.top.color = NULL,
+  column_labels.border.bottom.style = NULL,
+  column_labels.border.bottom.width = NULL,
+  column_labels.border.bottom.color = NULL,
+  column_labels.border.lr.style = NULL,
+  column_labels.border.lr.width = NULL,
+  column_labels.border.lr.color = NULL,
+  column_labels.hidden = NULL,
+  row_group.background.color = NULL,
+  row_group.font.size = NULL,
+  row_group.font.weight = NULL,
+  row_group.text_transform = NULL,
+  row_group.padding = NULL,
+  row_group.border.top.style = NULL,
+  row_group.border.top.width = NULL,
+  row_group.border.top.color = NULL,
+  row_group.border.bottom.style = NULL,
+  row_group.border.bottom.width = NULL,
+  row_group.border.bottom.color = NULL,
+  row_group.border.left.style = NULL,
+  row_group.border.left.width = NULL,
+  row_group.border.left.color = NULL,
+  row_group.border.right.style = NULL,
+  row_group.border.right.width = NULL,
+  row_group.border.right.color = NULL,
+  table_body.hlines.style = NULL,
+  table_body.hlines.width = NULL,
+  table_body.hlines.color = NULL,
+  table_body.vlines.style = NULL,
+  table_body.vlines.width = NULL,
+  table_body.vlines.color = NULL,
+  table_body.border.top.style = NULL,
+  table_body.border.top.width = NULL,
+  table_body.border.top.color = NULL,
+  table_body.border.bottom.style = NULL,
+  table_body.border.bottom.width = NULL,
+  table_body.border.bottom.color = NULL,
+  stub.background.color = NULL,
+  stub.font.size = NULL,
+  stub.font.weight = NULL,
+  stub.text_transform = NULL,
+  stub.border.style = NULL,
+  stub.border.width = NULL,
+  stub.border.color = NULL,
+  data_row.padding = NULL,
+  summary_row.background.color = NULL,
+  summary_row.text_transform = NULL,
+  summary_row.padding = NULL,
+  summary_row.border.style = NULL,
+  summary_row.border.width = NULL,
+  summary_row.border.color = NULL,
+  grand_summary_row.background.color = NULL,
+  grand_summary_row.text_transform = NULL,
+  grand_summary_row.padding = NULL,
+  grand_summary_row.border.style = NULL,
+  grand_summary_row.border.width = NULL,
+  grand_summary_row.border.color = NULL,
+  footnotes.background.color = NULL,
+  footnotes.font.size = NULL,
+  footnotes.padding = NULL,
+  footnotes.border.bottom.style = NULL,
+  footnotes.border.bottom.width = NULL,
+  footnotes.border.bottom.color = NULL,
+  footnotes.border.lr.style = NULL,
+  footnotes.border.lr.width = NULL,
+  footnotes.border.lr.color = NULL,
+  footnotes.sep = NULL,
+  footnotes.marks = NULL,
+  source_notes.background.color = NULL,
+  source_notes.font.size = NULL,
+  source_notes.padding = NULL,
+  source_notes.border.bottom.style = NULL,
+  source_notes.border.bottom.width = NULL,
+  source_notes.border.bottom.color = NULL,
+  source_notes.border.lr.style = NULL,
+  source_notes.border.lr.width = NULL,
+  source_notes.border.lr.color = NULL,
+  row.striping.background_color = NULL,
+  row.striping.include_stub = NULL,
+  row.striping.include_table_body = NULL
+  ```
+  
+# Formato de los datos
+
+Hay algunas funciones para poder darle formato a los datos que presentamos en `gt`. Para ejemplificar estas funciones vamos a utilizar el data set `exibble`.
+
+```{r}
+exibble
+```
+
+Algunas de las funciones útiles son:
+
+- `fmt_currency()` sirve para dar formato a valores que se quieren expresar como moneda. En el argumento `currency` especificamos el tipo de moneada, lamentablemente aun los colones costarricenses no se encuentran en las opciones. Pero podemos ver todas las opciones disponibles con `info_currencies()`.
+
+```{r}
+info_currencies()
+```
+
+```{r}
+exibble %>% 
+  select(char, currency) %>% 
+  gt() %>% 
+  fmt_currency(columns = vars(currency), currency = "USD", decimals = 1)
+```
+
+- `fmt_date()`, `fmt_time()` y `fmt_datetime` son funciones que nos sirven para darle formato a valores de fechas, tiempos o fecha-tiempo.
+
+Para `fmt_date()` los formatos disponibles los podemos ver en `info_date_style()` y se especifican en el parámetro `date_style()`.
+
+```{r}
+exibble %>% 
+  select(char, date) %>% 
+  gt() %>% 
+  fmt_date(columns = vars(date), date_style = 8)
+```
+
+Para `fmt_time()` los formatos disponibles los podemos ver en `info_time_style()` y se especifican en el parámetro `date_style()`.
+
+```{r}
+exibble %>% 
+  select(char, time) %>% 
+  gt() %>% 
+  fmt_time(columns = vars(time), time_style = 4)
+```
+
+Para `fmt_datetime()` es una combinación de las 2 anteriores y es cuando tenemos variables que son fecha-tiempo. Simplemente especificamos cual formato queremos para la fecha y cual para el tiempo con los mismos dos parametros de las dos funciones que acabamos de ver.
+
+```{r}
+exibble %>% 
+  select(char, datetime) %>% 
+  gt() %>% 
+  fmt_datetime(columns = vars(datetime),  date_style = 8, time_style = 4)
+```
+
+- `fmt_missing()` con esto le damos formato a los valores perdidos, muchas veces nos molesta que en las tablas salga `NA` o `NaN`, pues con `gt` es mucho mas sencillo manejar con esto. En el parámetro `missing_text` especificamos como queremos que se muestren los valores perdidos en la tabla
+
+```{r}
+exibble %>% 
+  select(char, date) %>% 
+  gt() %>% 
+  fmt_missing(columns = vars(char, date), missing_text = "")
+```
+
+- `fmt_number()` puede aydarnos a lidiar con otro de nuestros problemas más comunes, que es darle formato a valores numéricos. En ocasiones ocupamos que los decimales se muestren con "." o a veces con ",", o bien que los miles se presenten con "." y los decimales con ",". Esta función puede ayudarnos con esto usando los parametros  `sep_mark` y `dec_mark`.
+
+```{r}
+exibble %>% 
+  select(num, char) %>% 
+  gt() %>% 
+  fmt_number(columns = vars(num), dec_mark = ",", sep_mark = ".", decimals = 1) %>% 
+  fmt_missing(columns = vars(num, char), missing_text = "")
+```
+
+# Modificar columnas
+
+Hay algunas otras funciones entre la gran gamma de funciones `gt` que nos ayudan a darle formato a las columnas, que es otra de las razones que siempre nos da dolores de cabeza cuando intentamos darle el formato perfecto a una tabla en `kable` o en `DT`. Algunas de ellas son:
+
+- `cols_align()` Nos permite alinear las columnas.
+
+```{r}
+datos %>% 
+  select(detenido, ciudadano, empleado) %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_align(columns = vars(detenido), align = "left") %>% 
+  cols_align(columns = vars(ciudadano), align = "center") %>% 
+  cols_align(columns = vars(empleado), align = "right")
+```
+
+
+- `cols_width()` Nos permite determinar el ancho de las columnas. Los podemos hacer en pixeles con la función de ayuda de `px()`.
+
+```{r}
+datos %>% 
+  select(detenido, ciudadano, empleado) %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_width(vars(ciudadano) ~ px(300))
+
+
+datos %>% 
+  select(detenido, ciudadano, empleado) %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_width(everything() ~ px(200))
+```
+
+- `cols_move()` nos sirve para mover una columna de posición, con el parámetro `after` indicamos despues de cual columna queremos ubicar la columna que queremos mover de posición.
+
+```{r}
+datos %>% 
+  select(detenido, ciudadano, empleado) %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_move(columns = vars(empleado), after = vars(detenido))
+```
+
+- `cols_move_to_start()` y `cols_move_to_start()` nos sirve para mover una columna al inicio o al final.
+
+```{r}
+datos %>% 
+  select(detenido, ciudadano, empleado) %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_move_to_start(columns = vars(empleado))
+
+
+datos %>% 
+  select(detenido, ciudadano, empleado) %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_move_to_end(columns = vars(detenido))
+```
+
+- `cols_hide()` sirve para no mostrar ciertas columnas.
+
+```{r}
+datos %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_hide(columns = vars(`año`, edad))
+```
+
+# Guardar tablas
+
+Podemos guardas las tablas en distintos formatos con la función `gtsave()`. En png, html, entre otras. 
+
+Nota : Si queremos guardarlo como imagen necesitamos instalar el paquete `webshot` y posteriormente instalar phantomsjs con:
+
+```{r, eval = FALSE}
+install.packages("webshot")
+webshot::install_phantomjs()
+```
+
+```{r}
+datos %>% 
+  head(5) %>% 
+  gt() %>% 
+  cols_hide(columns = vars(`año`, edad)) %>% 
+  gtsave("img/tabla.png")
+```
+
+# Inclusión en shiny
+
+Algo muy importante es que `gt` nos ofrece la inclusión a shiny al igual que `DT`. Entonces para definir nuestro output en el UI usamos `gt_output()` y para definir en el server lo que va a desplegar este output usamos `render_gt()`.
+
+# Conclusión
+
+Aparte de las funciones mostradas en este tutorial hay algunas otras más, y hay maneras mucho más complejas y completas de implementarlas (incluso con las funciones que vimos). Si quiere ver otras funciones disponibles puede visitar su [página](https://gt.rstudio.com/reference/index.html) e investigar en detalle cada una de ellas.
