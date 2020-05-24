@@ -1,0 +1,436 @@
+---
+title: "Introducción a data.table"
+author: "Patrick Santamaría"
+date: "20/5/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+`data.table` es una extensión del paquete `data.frame` en R. Se usa ampliamente para la agregación rápida de grandes conjuntos de datos, asi como para agregar/actualizar/eliminar columnas, joins más rápidos y un lectura de archivos rápida. La sintaxis de `data.table` es flexible e intuitiva y, por lo tanto, conduce a un desarrollo más rápido. 
+
+Sin embargo la desventaja de esta sintaxis es que es dificil de combinar con tidyverse y toda su lógica. Sin embargo ya existe un paquete llamado `dtplyr` transforma un código escrito en `dplyr` a sintaxis de `data.table` y lo ejecuta usando esa sintaxis.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(nycflights13) #para los datos
+library(tidyverse)
+library(tictoc)
+library(carData)
+```
+
+# Objetos data.table
+
+Para convertir un data.frame o un tibble a `data.table` se utiliza  la función `as.data.table()`de la siguiente manera
+
+```{r}
+data <- as.data.table(airports)
+
+class(data)
+
+data 
+```
+
+Tambien podemos crear un objeto `data.table` desde cero usando la funcion `data.table` de la siguiente manera:
+
+```{r}
+datos <-  data.table(
+  ID = c("b","b","b","a","a","c"),
+  a = 1:6,
+  b = 7:12,
+  c = 13:18
+)
+
+datos
+```
+
+# Sintaxis
+
+En general la sintaxis `data.table` es la siguiente:
+
+```
+DT[i, j, by]
+```
+
+Donde:
+
+- `i` representa las filas y podemos hacer operaciones por filas.
+- `j`representa las columnas y podemos hacer operaciones por columnas
+- `by` representa los grupos.
+
+
+# Operaciones por filas (i)
+
+Podemos llamar a ciertas filas al igual que con `data.frame` indicando las posiciones que deseamos:
+
+```{r}
+data[1:5]
+```
+
+Podemos filtrar las filas esperando que se cumplan una o más condiciones especificando esas condiciones en el campo `i` mostrado anteriormente, no es necesario poner una coma luego como si se hace en `data.frame`.
+
+```{r}
+data[lat > 40]
+
+data[lat > 40 & lon < 80]
+```
+
+Con la funcion `order` tambien podemos ordenar las filas por ciertas columnas, si queremos hacerlo en orden decreciente usamos un `-` antes de la variable. En este caso vamos a ordenar de forma creciente para la variable `tzone` y dentro de cada `tzone` vamos a ordenar de forma decreciente por la variable `alt`:
+
+```{r}
+data[order(tzone, -alt)]
+```
+
+# Operaciones por columna (j)
+
+Si queremos llamar a cierta columna solo especificamos su nombre en la posición `j`. No es necesario encerrarlo en comillas como si lo es en `data.frame`
+
+```{r}
+data[, lat]
+```
+
+Si queremos seleccionar una columna o varias manteniendo la estructura de `data.table` sin que nos devuelva un vector como en el caso anterior debemos hacerlo con un `list()` o bien con `.()`:
+
+```{r}
+data[, list(lat, lon)]
+
+data[, .(lat, lon)]
+```
+
+Si tenemos los nombres de las columnas en un vector debemos usar el prefijo `..` de la siguiente manera
+
+```{r}
+variables <- c("lat", "lon")
+
+data[, ..variables]
+```
+
+O bien podemos hacerlo indicando `with = FALSE` para no tener que usar el prefijo `..`
+
+```{r}
+data[, variables, with = FALSE]
+```
+
+
+Podemos cambiarle el nombre a las columnas seleccionadas con `.(nombre_nuevo = nombre_viejo)` veamos un ejemplo:
+
+```{r}
+data[, .(latitud = lat, longitud = lon)]
+```
+
+Podemos sacar cierto calculo de una columna o de varias aplicando funciones, por ejemplo, obtengamos la suma de latitudes y la suma de longitudes.
+
+```{r}
+data[, .(suma_latitud = sum(lat), suma_longitud = sum(lon))]
+```
+
+O por que no combinar un calculo de varias variables. Por ejemplo primero restemos el valor de longitud a cada latitud y posteriormente obtengamos la desviacion estandar de ese valor. Eso lo podemos lograr así:
+
+```{r}
+data[, .(calculo = sd(lat - lon))]
+```
+
+A su vez puedo hacer seleciones y calculos a la misma vez. Vemos el ejemplo de seleccionar la latitud, pero de calcular la desviacion estandar para la longitud. Es necesario entender que la desviacion estandar de longitud es un unico valor por lo que pondra ese mismo valor para todas las latitudes de la siguiente manera:
+
+```{r}
+data[, .(lat, sd(lon))]
+```
+
+Para quitar una columna debemos especificarlas en un vector pero es necesario encerrarla en comillas `"variable"` y utilizar el operador `!` o bien `-` para removerla.
+
+```{r}
+data[, !c("lat")]
+
+data[, !c("lat")]
+```
+
+
+# Operaciones con filas y columnas
+
+Lo anterior podemos combinarlo claramente. Veamos un filtro combinado con lo que acabamos de ver:
+
+```{r}
+data[tzone == "America/New_York", .(lat, sd(lon))]
+```
+
+
+`.N` es una variable que se puede incorporar y su funcion es contar el numero de filas en el grupo actual. Como aun no estamos trabajando con grupos solamente nos va a dar el numero de filas del conjunto de datos actual.
+
+```{r}
+data[tzone == "America/New_York", .N]
+```
+
+
+# Agregación de datos
+
+Podemos hacer agrupaciones por cierta variable y aplicar a su vez alguna función a otra variable o a otras variables para esta agrupación, en el parámetro `by` se especifica la o las variables de agrupación:
+
+```{r}
+# agrupando por una variable
+data[ , .(sum_alt = sum(alt)), by = tzone]
+
+
+# agrupando por dos variables: es necesario usar el .() para poner todas las variables
+data[ , .(sum_alt = sum(alt)), by = .(tzone, dst)]
+```
+
+A su vez podriamos aplicar algun filtro a la misma vez, por ejemplo:
+
+```{r}
+data[dst == "A", .(sum_alt = sum(alt)), by = tzone]
+```
+
+En ocasiones puede que queramos ordenar por las variables de agrupación a la misma vez. Pues en lugar de `by` usamos `keyby` de la siguiente manera:
+
+```{r}
+data[ , .(sum_alt = sum(alt)), keyby = .(tzone, dst)]
+```
+
+
+Ahora asumamos que queremos hacer lo anterior, pero ademas queremos ordenar por la variable `sum_alt`, pues simplemente agregamos un nuevo parentesis `[]` con la nueva instrucción:
+
+```{r}
+data[ , .(sum_alt = sum(alt)), keyby = .(tzone, dst)][order(sum_alt)]
+```
+
+Existe otro argumento que es `.SD` este lo que hace es hacer una lista para cada nivel de la variable agrupada, en este caso vamos a agrupar por `tzone`, entonces para cada `tzone` hay un data.table separado.
+
+```{r}
+data[, print(.SD), by = tzone]
+```
+
+Ahora supongamos que tenemos el siguiente conjunto de datos:
+
+```{r}
+data_2 <- data[, .(lat, lon, alt, tzone)]
+data_2
+```
+
+Ahora queremos agrupar por `tzone` y calcular la media para el resto de variables. Quizás en este caso parece sencillo hacerlo a mano para cada uno, pero si son 100 variables más? Para ello podemos usar `lapply` o `map` de los paquetes de `base` y `purrr` respectivamente.
+
+```{r}
+data_2[, map(.SD, mean), by = tzone]
+```
+
+Si no lo quisieramos ejecutar para todas entonces podemos escoger para cuales lo queremos hacer usando el parámetro `.SDcols` de la siguiente manera:
+
+```{r}
+data_2[, map(.SD, mean), by = tzone, .SDcols = c("lat", "lon")]
+```
+
+Pero no solo podemos hacer funciones iterativas, tambien funciones especificas, supongamos que queremos primeramente ordenar por `alt` y seguidamente extraer las dos primeras observaciones de cada zona horaria, lo podemos hacer con la función `head()`
+
+```{r}
+data_2[order(-alt), head(.SD, 2), by = tzone]
+```
+
+# Joins
+
+Supongamos que tenemos los siguientes datos. Observemos que tienen una variable en común llamada `num_policia`, la cuál nos puede funcionar para hacer joins:
+
+```{r}
+policias <- data.table(
+  num_policia = c(1, 2, 3),
+  fecha_eff = as.Date(c("2012-1-1", "2012-1-1", "2012-7-1")),
+  fecha_exp = as.Date(c("2012-12-31", "2012-6-30", "2012-12-31"))
+)
+
+reclamos <- data.table(
+  num_reclamo = c(123, 124, 125, 126),
+  num_policia = c(1, 1, 3, 4),
+  cost_reclamo = c(100, 2400, 350, 8000)
+)
+
+policias
+reclamos
+```
+
+Para poder hacer joins, primeros debemos establecer una variable como llave con la función `setkey(datatable, variable_id)`.
+
+```{r}
+setkey(policias, num_policia)
+setkey(reclamos, num_policia)
+```
+
+Si queremos hacer un left join, la variable izquierda debe ir dentro del parentesis (es decir, conservamos los id del data.table que está dentro del parentesis) y la variable derecha fuera del parentesis (los id de este otro data.table se conservan solo en caso de que existan coincidencias en el otro data.table), de la siguiente manera:
+
+```{r}
+reclamos[policias]
+```
+
+Si queremos hacer un inner join especificamos el parametro `nomatch = 0`, y con ello conservamos unicamente los id que se encuentran en ambos data.tables. Para este caso el orden no tiene relevancia (es decir, no importa cual ponemos adentro del parentesis y cual afuera):
+
+```{r}
+reclamos[policias, nomatch = 0]
+```
+
+Si queremos hacer un full join lo podemos hacer con la función `merge(data.table1, data.table2, all = TRUE)`. En este caso como es un full join completo no importa el orden de los data.tables.
+
+```{r}
+merge(reclamos, policias, all = TRUE)
+```
+
+Existen otras variaciones de los join, que no abarcaré en esta demo. Sin embargo aquí es importante recalcar que la importancia de utilizar data.table en algunas situaciones, pues en un par de casos que utilicé data.table para replicar un código escrito con `tidyverse` resultó muchísimo más efectivo `data.table`. Veamos un ejmplo de comparación simple a ver que sucede.
+
+# Comparación dyplyr
+
+Para ello vamos a usar el data set de `MplsStops` del paquete `carData` y este corresponde a los resultados de casi todas las paradas realizadas por el Departamento de Policía de Minneapolis para el año 2017, sin embargo como son tan pocos datos vamos a replicar los mismos datos, hasta obtener 6 000 000 de observaciones.
+
+```{r}
+MplsStops <- MplsStops %>%
+  mutate_if(is.factor, as.character)
+
+df_datos  <- MplsStops %>%
+  bind_rows(MplsStops) %>% 
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>% 
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>% 
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>% 
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>% 
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>% 
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops) %>%
+  bind_rows(MplsStops)
+
+dt_datos <- data.table(df_datos)
+
+head(df_datos)
+```
+
+Para hacer este ejemplo vamos a agrupar de acuerdo a 3 variables y haremos 5 calculos, el ultimo de ellos es bastante pesado pues necesita ejecutar una regresión para cada grupo y extraer el intercepto. Veamos primero el resultado usando `dplyr`:
+
+```{r}
+tic()
+df_calc <- df_datos %>% 
+  group_by(problem, race, gender) %>% 
+  summarise(cal1 = sum(policePrecinct) - mean(lat) * max(long),
+            cal2 = sum(long) * mean(lat) / sum(long),
+            cal3 = sum(lat) + max(long) - min(long) * mean(sum(policePrecinct)),
+            cal4 = mean(policePrecinct) + sd(long) * var(long) - min(policePrecinct),
+            cal5 = mean(long) - coefficients(lm(long~ lat, data = df_datos))[1])
+toc()  
+```
+
+Ahora veamos el resultado en la duración usando `data.table`
+
+```{r}
+tic()
+dt_calc <- dt_datos[ , .(cal1 = sum(policePrecinct) - mean(lat) * max(long),
+              cal2 = sum(long) * mean(lat) / sum(long),
+              cal3 = sum(lat) + max(long) - min(long) * mean(sum(policePrecinct)),
+              cal4 = mean(policePrecinct) + sd(long) * var(long) - min(policePrecinct),
+              cal5 = mean(long) - coefficients(lm(long~ lat, data = df_datos))[1]),
+         by = .(problem, race, gender)]
+toc()
+```
+
+No hay muchísima diferencia en el tiempo de ejecución, quizás sea necesario utilizar algunos de los joins utiles de data.table contra tidyverse para ver esta diferencia más clara como yo la ví en un pasado. Sin embargo ahora me queda claro que al menos para calculos simples no es tan necesario hacer uso de `data.table`, pues al menos a mi parecer el código `tidyverse` es mucho mas claro. 
+
+Esto no quiere decir que data.table no se deba usar nunca, reitero que a mi en dos ocasiones me emjoró el tiempo de ejecución en más de un 80%. Quizás sea necesario documentar mejor esos casos en otras demos.
