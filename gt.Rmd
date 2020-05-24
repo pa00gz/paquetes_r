@@ -71,7 +71,6 @@ datos %>%
     )
 ```
 
-
 Si quisieramos poner el título en negrita la función `md()` nos permite editar el texto allí adentro como si estuviermos usando lenguaje de markdown.
 
 ```{r}
@@ -407,7 +406,6 @@ datos %>%
   cols_align(columns = vars(ciudadano), align = "center") %>% 
   cols_align(columns = vars(empleado), align = "right")
 ```
-
 
 - `cols_width()` Nos permite determinar el ancho de las columnas. Los podemos hacer en pixeles con la función de ayuda de `px()`.
 
